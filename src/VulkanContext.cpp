@@ -1,58 +1,6 @@
 #include "VulkanContext.h"
 
-#include <iostream>
-
-Window::Window(uint32_t width, uint32_t height, std::string title)
-{
-    auto error_callback = [](int error, const char *description) {
-        (void)error;
-        std::cerr << "Glfw Error: " << description << '\n';
-    };
-
-    glfwSetErrorCallback(error_callback);
-
-    if (!glfwInit())
-        throw std::runtime_error("Failed to initialize glfw!");
-
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-    m_Window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
-
-    if (!m_Window)
-    {
-        glfwTerminate();
-        throw std::runtime_error("Failed to create a window!");
-    }
-}
-
-Window::~Window()
-{
-    glfwDestroyWindow(m_Window);
-    glfwTerminate();
-}
-
-bool Window::ShouldClose()
-{
-    return glfwWindowShouldClose(m_Window);
-}
-
-void Window::PollEvents()
-{
-    glfwPollEvents();
-}
-
-VkSurfaceKHR Window::CreateSurface(VkInstance instance, VkAllocationCallbacks *allocator)
-{
-    VkSurfaceKHR surface = VK_NULL_HANDLE;
-    VkResult err = glfwCreateWindowSurface(instance, m_Window, allocator, &surface);
-    if (err)
-        throw std::runtime_error("Failed to create a surface!");
-
-    return surface;
-}
-
-VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title) : window(width, height, title)
+VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title) : Window(width, height, title)
 {
     // Device creation:
     vkb::InstanceBuilder builder;
@@ -61,13 +9,13 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title)
     if (!inst_ret)
         throw std::runtime_error(inst_ret.error().message());
 
-    instance = inst_ret.value();
-    inst_disp = instance.make_table();
-    surface = window.CreateSurface(instance);
+    Instance = inst_ret.value();
+    InstDisp = Instance.make_table();
+    Surface = Window.CreateSurface(Instance);
 
-    vkb::PhysicalDeviceSelector phys_device_selector(instance);
+    vkb::PhysicalDeviceSelector phys_device_selector(Instance);
 
-    auto phys_device_ret = phys_device_selector.set_surface(surface).select();
+    auto phys_device_ret = phys_device_selector.set_surface(Surface).select();
     if (!phys_device_ret)
         throw std::runtime_error(phys_device_ret.error().message());
 
@@ -79,8 +27,8 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title)
     if (!device_ret)
         throw std::runtime_error(device_ret.error().message());
 
-    device = device_ret.value();
-    disp = device.make_table();
+    Device = device_ret.value();
+    Disp = Device.make_table();
 
     // Swapchain creation:
     CreateSwapchain();
@@ -88,12 +36,12 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title)
 
 void VulkanContext::CreateSwapchain()
 {
-    vkb::SwapchainBuilder swapchain_builder{device};
+    vkb::SwapchainBuilder swapchain_builder{Device};
 
-    auto swap_ret = swapchain_builder.set_old_swapchain(swapchain).build();
+    auto swap_ret = swapchain_builder.set_old_swapchain(Swapchain).build();
     if (!swap_ret)
         throw std::runtime_error(swap_ret.error().message());
 
-    vkb::destroy_swapchain(swapchain);
-    swapchain = swap_ret.value();
+    vkb::destroy_swapchain(Swapchain);
+    Swapchain = swap_ret.value();
 }
