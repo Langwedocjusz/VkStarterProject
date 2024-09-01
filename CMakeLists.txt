@@ -22,7 +22,13 @@ endif()
 #To enable usage of clang-tidy:
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
-target_sources(${PROJECT_NAME} PRIVATE src/main.cpp)
+target_sources(${PROJECT_NAME}
+    PRIVATE
+        #Also listing headers to make them visible in IDEs
+        src/VulkanContext.h
+        src/VulkanContext.cpp
+        src/main.cpp
+)
 
 #For filters in IDEs like Visual studio:
 source_group(src REGULAR_EXPRESSION "src/*")
@@ -31,10 +37,12 @@ source_group(src REGULAR_EXPRESSION "src/*")
 find_package(Vulkan REQUIRED)
 
 add_subdirectory(vendor/glfw)
+add_subdirectory(vendor/vk-bootstrap)
 
 #Link dependencies:
 target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
+target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
 
 #Dependency-specific definitions:
 target_compile_definitions(${PROJECT_NAME} PRIVATE "GLFW_INCLUDE_VULKAN")
