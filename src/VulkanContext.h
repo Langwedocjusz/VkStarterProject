@@ -16,4 +16,6 @@ struct VulkanContext {
     vkb::Device Device;
     vkb::DispatchTable Disp;
     vkb::Swapchain Swapchain;
+
+    bool FramebufferResized = false;
 };

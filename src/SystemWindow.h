@@ -7,7 +7,7 @@
 
 class SystemWindow {
   public:
-    SystemWindow(uint32_t width, uint32_t height, std::string title);
+    SystemWindow(uint32_t width, uint32_t height, std::string title, void* usr_ptr = nullptr);
     ~SystemWindow();
 
     bool ShouldClose();

@@ -1,8 +1,19 @@
 #include "SystemWindow.h"
 
+#include "VulkanContext.h"
+
 #include <iostream>
 
-SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title)
+static void FramebufferResizeCallback(GLFWwindow* window, int width, int height)
+{
+    auto ctx = reinterpret_cast<VulkanContext*>(glfwGetWindowUserPointer(window));
+
+    ctx->FramebufferResized = true;
+
+    (void)width; (void)height;
+}
+
+SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title, void* usr_ptr)
 {
     auto error_callback = [](int error, const char *description) {
         (void)error;
@@ -15,7 +26,7 @@ SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title)
         throw std::runtime_error("Failed to initialize glfw!");
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    //glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
     m_Window = glfwCreateWindow(width, height, title.c_str(), nullptr, nullptr);
 
@@ -24,6 +35,9 @@ SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title)
         glfwTerminate();
         throw std::runtime_error("Failed to create a window!");
     }
+
+    glfwSetWindowUserPointer(m_Window, usr_ptr);
+    glfwSetFramebufferSizeCallback(m_Window, FramebufferResizeCallback);
 }
 
 SystemWindow::~SystemWindow()

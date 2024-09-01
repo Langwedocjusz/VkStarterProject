@@ -357,6 +357,7 @@ void DrawFrame(VulkanContext &ctx, RenderData &data)
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
         RecreateSwapchain(ctx, data);
+        return;
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
     {
@@ -405,9 +406,11 @@ void DrawFrame(VulkanContext &ctx, RenderData &data)
     present_info.pImageIndices = &image_index;
 
     result = ctx.Disp.queuePresentKHR(data.PresentQueue, &present_info);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || ctx.FramebufferResized)
     {
+        ctx.FramebufferResized = false;
         RecreateSwapchain(ctx, data);
+        return;
     }
     else if (result != VK_SUCCESS)
     {
