@@ -406,9 +406,9 @@ void DrawFrame(VulkanContext &ctx, RenderData &data)
     present_info.pImageIndices = &image_index;
 
     result = ctx.Disp.queuePresentKHR(data.PresentQueue, &present_info);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || ctx.FramebufferResized)
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || data.FramebufferResized)
     {
-        ctx.FramebufferResized = false;
+        data.FramebufferResized = false;
         RecreateSwapchain(ctx, data);
         return;
     }

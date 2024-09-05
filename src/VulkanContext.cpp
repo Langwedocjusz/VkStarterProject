@@ -1,6 +1,7 @@
 #include "VulkanContext.h"
 
-VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title) : Window(width, height, title, static_cast<void*>(this))
+VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title, void *usr_ptr)
+    : Window(width, height, title, usr_ptr)
 {
     // Initialization done using vk-bootstrap, docs available at
     // https://github.com/charles-lunarg/vk-bootstrap/blob/main/docs/getting_started.md

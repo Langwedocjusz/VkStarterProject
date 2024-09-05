@@ -24,4 +24,5 @@ struct RenderData {
     std::vector<VkFence> ImageInFlight;
 
     size_t CurrentFrame = 0;
+    bool FramebufferResized = false;
 };

@@ -34,6 +34,8 @@ target_sources(${PROJECT_NAME}
         src/Utils.cpp
         src/Renderer.h
         src/Renderer.cpp
+        src/Application.h
+        src/Application.cpp
         src/main.cpp
 )
 
