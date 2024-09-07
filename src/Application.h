@@ -15,4 +15,6 @@ class Application {
   private:
     VulkanContext m_Ctx;
     RenderData m_Data;
+
+    VkDescriptorPool m_ImguiPool; // to-do: move this
 };

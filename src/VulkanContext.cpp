@@ -39,9 +39,9 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
     if (!phys_device_ret)
         throw std::runtime_error(phys_device_ret.error().message());
 
-    vkb::PhysicalDevice physical_device = phys_device_ret.value();
+    PhysicalDevice = phys_device_ret.value();
 
-    auto device_ret = vkb::DeviceBuilder(physical_device).build();
+    auto device_ret = vkb::DeviceBuilder(PhysicalDevice).build();
 
     if (!device_ret)
         throw std::runtime_error(device_ret.error().message());

@@ -18,8 +18,9 @@ struct RenderData {
     VkCommandPool CommandPool;
     std::vector<VkCommandBuffer> CommandBuffers;
 
-    std::vector<VkSemaphore> AvailableSemaphores;
-    std::vector<VkSemaphore> FinishedSemaphores;
+    std::vector<VkSemaphore> ImageAcquiredSemaphores;
+    std::vector<VkSemaphore> RenderCompletedSemaphores;
+
     std::vector<VkFence> InFlightFences;
     std::vector<VkFence> ImageInFlight;
 

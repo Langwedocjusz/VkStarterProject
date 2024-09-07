@@ -4,3 +4,7 @@
 [submodule "vendor/vk-bootstrap"]
 	path = vendor/vk-bootstrap
 	url = https://github.com/charles-lunarg/vk-bootstrap
+[submodule "vendor/imgui"]
+	path = vendor/imgui
+	url = https://github.com/Langwedocjusz/imgui
+	branch = docking

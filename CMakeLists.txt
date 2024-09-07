@@ -42,16 +42,22 @@ target_sources(${PROJECT_NAME}
 #For filters in IDEs like Visual studio:
 source_group(src REGULAR_EXPRESSION "src/*")
 
+#Configure cmake options for dependencies:
+set(IMGUI_BACKEND_GLFW ON)
+set(IMGUI_BACKEND_VULKAN ON)
+
 #Get dependencies:
 find_package(Vulkan REQUIRED)
 
 add_subdirectory(vendor/glfw)
 add_subdirectory(vendor/vk-bootstrap)
+add_subdirectory(vendor/imgui)
 
 #Link dependencies:
 target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
+target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
 
 #Dependency-specific definitions:
 target_compile_definitions(${PROJECT_NAME} PRIVATE "GLFW_INCLUDE_VULKAN")

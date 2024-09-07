@@ -15,6 +15,11 @@ class SystemWindow {
     void PollEvents();
     void WaitEvents();
 
+    GLFWwindow *get()
+    {
+        return m_Window;
+    }
+
     VkSurfaceKHR CreateSurface(VkInstance instance, VkAllocationCallbacks *allocator = nullptr);
 
   private:

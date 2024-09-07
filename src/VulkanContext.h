@@ -13,6 +13,7 @@ struct VulkanContext {
     vkb::Instance Instance;
     vkb::InstanceDispatchTable InstDisp;
     VkSurfaceKHR Surface;
+    vkb::PhysicalDevice PhysicalDevice;
     vkb::Device Device;
     vkb::DispatchTable Disp;
     vkb::Swapchain Swapchain;

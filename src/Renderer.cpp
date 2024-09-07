@@ -2,6 +2,10 @@
 
 #include "Utils.h"
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
+
 #include <iostream>
 
 static VkShaderModule CreateShaderModule(VulkanContext &ctx, const std::vector<char> &code)
@@ -211,8 +215,8 @@ void CreateGraphicsPipeline(VulkanContext &ctx, RenderData &data)
 
 void CreateSyncObjects(VulkanContext &ctx, RenderData &data)
 {
-    data.AvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    data.FinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    data.ImageAcquiredSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    data.RenderCompletedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     data.InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
     data.ImageInFlight.resize(ctx.Swapchain.image_count, VK_NULL_HANDLE);
 
@@ -225,8 +229,8 @@ void CreateSyncObjects(VulkanContext &ctx, RenderData &data)
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        if (ctx.Disp.createSemaphore(&semaphore_info, nullptr, &data.AvailableSemaphores[i]) != VK_SUCCESS ||
-            ctx.Disp.createSemaphore(&semaphore_info, nullptr, &data.FinishedSemaphores[i]) != VK_SUCCESS ||
+        if (ctx.Disp.createSemaphore(&semaphore_info, nullptr, &data.ImageAcquiredSemaphores[i]) != VK_SUCCESS ||
+            ctx.Disp.createSemaphore(&semaphore_info, nullptr, &data.RenderCompletedSemaphores[i]) != VK_SUCCESS ||
             ctx.Disp.createFence(&fence_info, nullptr, &data.InFlightFences[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create sync objects");
     }
@@ -330,10 +334,13 @@ void DrawFrame(VulkanContext &ctx, RenderData &data)
 {
     ctx.Disp.waitForFences(1, &data.InFlightFences[data.FrameSemaphoreIndex], VK_TRUE, UINT64_MAX);
 
+    auto& imageAcquiredSemaphore = data.ImageAcquiredSemaphores[data.FrameSemaphoreIndex];
+    auto& renderCompleteSemaphore = data.RenderCompletedSemaphores[data.FrameSemaphoreIndex];
+
     if (ctx.SwapchainOk)
     {
         VkResult result =
-            ctx.Disp.acquireNextImageKHR(ctx.Swapchain, UINT64_MAX, data.AvailableSemaphores[data.FrameSemaphoreIndex],
+            ctx.Disp.acquireNextImageKHR(ctx.Swapchain, UINT64_MAX, imageAcquiredSemaphore,
                                          VK_NULL_HANDLE, &data.FrameImageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR)
@@ -358,7 +365,7 @@ void DrawFrame(VulkanContext &ctx, RenderData &data)
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore wait_semaphores[] = {data.AvailableSemaphores[data.FrameSemaphoreIndex]};
+    VkSemaphore wait_semaphores[] = {imageAcquiredSemaphore};
     VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submitInfo.waitSemaphoreCount = 1;
     submitInfo.pWaitSemaphores = wait_semaphores;
@@ -367,101 +374,162 @@ void DrawFrame(VulkanContext &ctx, RenderData &data)
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &data.CommandBuffers[data.FrameImageIndex];
 
-    VkSemaphore signal_semaphores[] = {data.FinishedSemaphores[data.FrameSemaphoreIndex]};
+    VkSemaphore signal_semaphores[] = {renderCompleteSemaphore};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signal_semaphores;
 
     ctx.Disp.resetFences(1, &data.InFlightFences[data.FrameSemaphoreIndex]);
 
-    if (ctx.Disp.queueSubmit(data.GraphicsQueue, 1, &submitInfo, data.InFlightFences[data.FrameSemaphoreIndex]) !=
-        VK_SUCCESS)
+    // Re-record command buffer
     {
-        throw std::runtime_error("Failed to submit draw command buffer!");
+        auto res = vkResetCommandPool(ctx.Device, data.CommandPool, 0);
+
+        if (res != VK_SUCCESS)
+            throw std::runtime_error("Failed to reset command pool!");
+
+        // to-do: maybe clean this code duplication up, may not be worth it, since we'll switch to dynamic rendering in
+        // the future
+        for (size_t i = 0; i < data.CommandBuffers.size(); i++)
+        {
+            VkCommandBufferBeginInfo begin_info = {};
+            begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+            begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; //new
+
+            if (ctx.Disp.beginCommandBuffer(data.CommandBuffers[i], &begin_info) != VK_SUCCESS)
+                throw std::runtime_error("Failed to begin recording command buffer!");
+
+            VkRenderPassBeginInfo render_pass_info = {};
+            render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+            render_pass_info.renderPass = data.RenderPass;
+            render_pass_info.framebuffer = data.Framebuffers[i];
+            render_pass_info.renderArea.offset = {0, 0};
+            render_pass_info.renderArea.extent = ctx.Swapchain.extent;
+            VkClearValue clearColor{{{0.0f, 0.0f, 0.0f, 1.0f}}};
+            render_pass_info.clearValueCount = 1;
+            render_pass_info.pClearValues = &clearColor;
+
+            VkViewport viewport = {};
+            viewport.x = 0.0f;
+            viewport.y = 0.0f;
+            viewport.width = static_cast<float>(ctx.Swapchain.extent.width);
+            viewport.height = static_cast<float>(ctx.Swapchain.extent.height);
+            viewport.minDepth = 0.0f;
+            viewport.maxDepth = 1.0f;
+
+            VkRect2D scissor = {};
+            scissor.offset = {0, 0};
+            scissor.extent = ctx.Swapchain.extent;
+
+            ctx.Disp.cmdSetViewport(data.CommandBuffers[i], 0, 1, &viewport);
+            ctx.Disp.cmdSetScissor(data.CommandBuffers[i], 0, 1, &scissor);
+
+            ctx.Disp.cmdBeginRenderPass(data.CommandBuffers[i], &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+
+            ctx.Disp.cmdBindPipeline(data.CommandBuffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, data.GraphicsPipeline);
+
+            ctx.Disp.cmdDraw(data.CommandBuffers[i], 3, 1, 0, 0);
+
+            // Record dear imgui primitives into command buffer
+            ImDrawData* draw_data = ImGui::GetDrawData();
+            if (draw_data)
+                ImGui_ImplVulkan_RenderDrawData(draw_data, data.CommandBuffers[i]);
+
+            ctx.Disp.cmdEndRenderPass(data.CommandBuffers[i]);
+
+            if (ctx.Disp.endCommandBuffer(data.CommandBuffers[i]) != VK_SUCCESS)
+                throw std::runtime_error("Failed to record command buffer!");
+        }
+
+        if (ctx.Disp.queueSubmit(data.GraphicsQueue, 1, &submitInfo, data.InFlightFences[data.FrameSemaphoreIndex]) !=
+            VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to submit draw command buffer!");
+        }
     }
 }
 
-void PresentFrame(VulkanContext &ctx, RenderData &data)
-{
-    if (!ctx.SwapchainOk)
-        return;
-
-    VkPresentInfoKHR present_info = {};
-    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-    VkSemaphore signal_semaphores[] = {data.FinishedSemaphores[data.FrameSemaphoreIndex]};
-    present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = signal_semaphores;
-
-    VkSwapchainKHR swapChains[] = {ctx.Swapchain};
-    present_info.swapchainCount = 1;
-    present_info.pSwapchains = swapChains;
-
-    present_info.pImageIndices = &data.FrameImageIndex;
-
-    VkResult result = ctx.Disp.queuePresentKHR(data.PresentQueue, &present_info);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+    void PresentFrame(VulkanContext & ctx, RenderData & data)
     {
-        ctx.SwapchainOk = false;
-        return;
-    }
-    else if (result != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to present swapchain image!");
-    }
+        if (!ctx.SwapchainOk)
+            return;
 
-    data.FrameSemaphoreIndex = (data.FrameSemaphoreIndex + 1) % MAX_FRAMES_IN_FLIGHT;
-}
+        VkPresentInfoKHR present_info = {};
+        present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
-void RecreateSwapchain(VulkanContext &ctx, RenderData &data)
-{
-    ctx.Disp.deviceWaitIdle();
+        VkSemaphore signal_semaphores[] = {data.RenderCompletedSemaphores[data.FrameSemaphoreIndex]};
+        present_info.waitSemaphoreCount = 1;
+        present_info.pWaitSemaphores = signal_semaphores;
 
-    ctx.Disp.destroyCommandPool(data.CommandPool, nullptr);
+        VkSwapchainKHR swapChains[] = {ctx.Swapchain};
+        present_info.swapchainCount = 1;
+        present_info.pSwapchains = swapChains;
 
-    for (auto framebuffer : data.Framebuffers)
-    {
-        ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
+        present_info.pImageIndices = &data.FrameImageIndex;
+
+        VkResult result = ctx.Disp.queuePresentKHR(data.PresentQueue, &present_info);
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+        {
+            ctx.SwapchainOk = false;
+            return;
+        }
+        else if (result != VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to present swapchain image!");
+        }
+
+        data.FrameSemaphoreIndex = (data.FrameSemaphoreIndex + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
-    ctx.Swapchain.destroy_image_views(data.SwapchainImageViews);
-
-    ctx.CreateSwapchain(ctx.Width, ctx.Height);
-
-    CreateFramebuffers(ctx, data);
-    CreateCommandPool(ctx, data);
-    CreateCommandBuffers(ctx, data);
-
-    ctx.SwapchainOk = true;
-
-    DrawFrame(ctx, data);
-    PresentFrame(ctx, data);
-}
-
-void VulkanCleanup(VulkanContext &ctx, RenderData &data)
-{
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    void RecreateSwapchain(VulkanContext & ctx, RenderData & data)
     {
-        ctx.Disp.destroySemaphore(data.FinishedSemaphores[i], nullptr);
-        ctx.Disp.destroySemaphore(data.AvailableSemaphores[i], nullptr);
-        ctx.Disp.destroyFence(data.InFlightFences[i], nullptr);
+        ctx.Disp.deviceWaitIdle();
+
+        ctx.Disp.destroyCommandPool(data.CommandPool, nullptr);
+
+        for (auto framebuffer : data.Framebuffers)
+        {
+            ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
+        }
+
+        ctx.Swapchain.destroy_image_views(data.SwapchainImageViews);
+
+        ctx.CreateSwapchain(ctx.Width, ctx.Height);
+
+        CreateFramebuffers(ctx, data);
+        CreateCommandPool(ctx, data);
+        CreateCommandBuffers(ctx, data);
+
+        ctx.SwapchainOk = true;
+
+        DrawFrame(ctx, data);
+        PresentFrame(ctx, data);
     }
 
-    ctx.Disp.destroyCommandPool(data.CommandPool, nullptr);
-
-    for (auto framebuffer : data.Framebuffers)
+    void VulkanCleanup(VulkanContext & ctx, RenderData & data)
     {
-        ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        {
+            ctx.Disp.destroySemaphore(data.RenderCompletedSemaphores[i], nullptr);
+            ctx.Disp.destroySemaphore(data.ImageAcquiredSemaphores[i], nullptr);
+            ctx.Disp.destroyFence(data.InFlightFences[i], nullptr);
+        }
+
+        ctx.Disp.destroyCommandPool(data.CommandPool, nullptr);
+
+        for (auto framebuffer : data.Framebuffers)
+        {
+            ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
+        }
+
+        ctx.Disp.destroyPipeline(data.GraphicsPipeline, nullptr);
+        ctx.Disp.destroyPipelineLayout(data.PipelineLayout, nullptr);
+        ctx.Disp.destroyRenderPass(data.RenderPass, nullptr);
+
+        ctx.Swapchain.destroy_image_views(data.SwapchainImageViews);
+
+        vkb::destroy_swapchain(ctx.Swapchain);
+        vkb::destroy_device(ctx.Device);
+        vkb::destroy_surface(ctx.Instance, ctx.Surface);
+        vkb::destroy_instance(ctx.Instance);
     }
-
-    ctx.Disp.destroyPipeline(data.GraphicsPipeline, nullptr);
-    ctx.Disp.destroyPipelineLayout(data.PipelineLayout, nullptr);
-    ctx.Disp.destroyRenderPass(data.RenderPass, nullptr);
-
-    ctx.Swapchain.destroy_image_views(data.SwapchainImageViews);
-
-    vkb::destroy_swapchain(ctx.Swapchain);
-    vkb::destroy_device(ctx.Device);
-    vkb::destroy_surface(ctx.Instance, ctx.Surface);
-    vkb::destroy_instance(ctx.Instance);
-}
 } // namespace renderer
