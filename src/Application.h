@@ -10,12 +10,9 @@ class Application {
 
     void Run();
 
-    void OnResize();
-  private:
-    const uint32_t m_Width = 800;
-    const uint32_t m_Height = 600;
-    const std::string m_Title = "Vulkan";
+    void OnResize(uint32_t width, uint32_t height);
 
+  private:
     VulkanContext m_Ctx;
     RenderData m_Data;
 };

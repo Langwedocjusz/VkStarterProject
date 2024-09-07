@@ -25,18 +25,18 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 target_sources(${PROJECT_NAME}
     PRIVATE
         #Also listing headers to make them visible in IDEs
-        src/SystemWindow.h
-        src/SystemWindow.cpp
-        src/VulkanContext.h
-        src/VulkanContext.cpp
-        src/RenderData.h
-        src/Utils.h
-        src/Utils.cpp
-        src/Renderer.h
-        src/Renderer.cpp
         src/Application.h
         src/Application.cpp
         src/main.cpp
+        src/RenderData.h
+        src/Renderer.h
+        src/Renderer.cpp
+        src/SystemWindow.h
+        src/SystemWindow.cpp
+        src/Utils.h
+        src/Utils.cpp
+        src/VulkanContext.h
+        src/VulkanContext.cpp
 )
 
 #For filters in IDEs like Visual studio:

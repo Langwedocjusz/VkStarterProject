@@ -19,6 +19,7 @@ void CreateCommandBuffers(VulkanContext &ctx, RenderData &data);
 void RecreateSwapchain(VulkanContext &ctx, RenderData &data);
 
 void DrawFrame(VulkanContext &ctx, RenderData &data);
+void PresentFrame(VulkanContext &ctx, RenderData &data);
 
 void VulkanCleanup(VulkanContext &ctx, RenderData &data);
 }; // namespace renderer

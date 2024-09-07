@@ -326,6 +326,92 @@ void CreateCommandBuffers(VulkanContext &ctx, RenderData &data)
     }
 }
 
+void DrawFrame(VulkanContext &ctx, RenderData &data)
+{
+    ctx.Disp.waitForFences(1, &data.InFlightFences[data.FrameSemaphoreIndex], VK_TRUE, UINT64_MAX);
+
+    if (ctx.SwapchainOk)
+    {
+        VkResult result =
+            ctx.Disp.acquireNextImageKHR(ctx.Swapchain, UINT64_MAX, data.AvailableSemaphores[data.FrameSemaphoreIndex],
+                                         VK_NULL_HANDLE, &data.FrameImageIndex);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR)
+        {
+            ctx.SwapchainOk = false;
+        }
+        else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+        {
+            throw std::runtime_error("Failed to acquire swapchain image!");
+        }
+    }
+
+    if (!ctx.SwapchainOk)
+        return;
+
+    if (data.ImageInFlight[data.FrameImageIndex] != VK_NULL_HANDLE)
+    {
+        ctx.Disp.waitForFences(1, &data.ImageInFlight[data.FrameImageIndex], VK_TRUE, UINT64_MAX);
+    }
+    data.ImageInFlight[data.FrameImageIndex] = data.InFlightFences[data.FrameSemaphoreIndex];
+
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore wait_semaphores[] = {data.AvailableSemaphores[data.FrameSemaphoreIndex]};
+    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submitInfo.waitSemaphoreCount = 1;
+    submitInfo.pWaitSemaphores = wait_semaphores;
+    submitInfo.pWaitDstStageMask = wait_stages;
+
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &data.CommandBuffers[data.FrameImageIndex];
+
+    VkSemaphore signal_semaphores[] = {data.FinishedSemaphores[data.FrameSemaphoreIndex]};
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores = signal_semaphores;
+
+    ctx.Disp.resetFences(1, &data.InFlightFences[data.FrameSemaphoreIndex]);
+
+    if (ctx.Disp.queueSubmit(data.GraphicsQueue, 1, &submitInfo, data.InFlightFences[data.FrameSemaphoreIndex]) !=
+        VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to submit draw command buffer!");
+    }
+}
+
+void PresentFrame(VulkanContext &ctx, RenderData &data)
+{
+    if (!ctx.SwapchainOk)
+        return;
+
+    VkPresentInfoKHR present_info = {};
+    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+    VkSemaphore signal_semaphores[] = {data.FinishedSemaphores[data.FrameSemaphoreIndex]};
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = signal_semaphores;
+
+    VkSwapchainKHR swapChains[] = {ctx.Swapchain};
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = swapChains;
+
+    present_info.pImageIndices = &data.FrameImageIndex;
+
+    VkResult result = ctx.Disp.queuePresentKHR(data.PresentQueue, &present_info);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+    {
+        ctx.SwapchainOk = false;
+        return;
+    }
+    else if (result != VK_SUCCESS)
+    {
+        throw std::runtime_error("Failed to present swapchain image!");
+    }
+
+    data.FrameSemaphoreIndex = (data.FrameSemaphoreIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
 void RecreateSwapchain(VulkanContext &ctx, RenderData &data)
 {
     ctx.Disp.deviceWaitIdle();
@@ -339,85 +425,16 @@ void RecreateSwapchain(VulkanContext &ctx, RenderData &data)
 
     ctx.Swapchain.destroy_image_views(data.SwapchainImageViews);
 
-    ctx.CreateSwapchain();
+    ctx.CreateSwapchain(ctx.Width, ctx.Height);
 
     CreateFramebuffers(ctx, data);
     CreateCommandPool(ctx, data);
     CreateCommandBuffers(ctx, data);
-}
 
-void DrawFrame(VulkanContext &ctx, RenderData &data)
-{
-    ctx.Disp.waitForFences(1, &data.InFlightFences[data.CurrentFrame], VK_TRUE, UINT64_MAX);
+    ctx.SwapchainOk = true;
 
-    uint32_t image_index = 0;
-    VkResult result = ctx.Disp.acquireNextImageKHR(
-        ctx.Swapchain, UINT64_MAX, data.AvailableSemaphores[data.CurrentFrame], VK_NULL_HANDLE, &image_index);
-
-    if (result == VK_ERROR_OUT_OF_DATE_KHR)
-    {
-        RecreateSwapchain(ctx, data);
-        return;
-    }
-    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
-    {
-        throw std::runtime_error("Failed to acquire swapchain image!");
-    }
-
-    if (data.ImageInFlight[image_index] != VK_NULL_HANDLE)
-    {
-        ctx.Disp.waitForFences(1, &data.ImageInFlight[image_index], VK_TRUE, UINT64_MAX);
-    }
-    data.ImageInFlight[image_index] = data.InFlightFences[data.CurrentFrame];
-
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    VkSemaphore wait_semaphores[] = {data.AvailableSemaphores[data.CurrentFrame]};
-    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = wait_semaphores;
-    submitInfo.pWaitDstStageMask = wait_stages;
-
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &data.CommandBuffers[image_index];
-
-    VkSemaphore signal_semaphores[] = {data.FinishedSemaphores[data.CurrentFrame]};
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signal_semaphores;
-
-    ctx.Disp.resetFences(1, &data.InFlightFences[data.CurrentFrame]);
-
-    if (ctx.Disp.queueSubmit(data.GraphicsQueue, 1, &submitInfo, data.InFlightFences[data.CurrentFrame]) != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to submit draw command buffer!");
-    }
-
-    VkPresentInfoKHR present_info = {};
-    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-
-    present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = signal_semaphores;
-
-    VkSwapchainKHR swapChains[] = {ctx.Swapchain};
-    present_info.swapchainCount = 1;
-    present_info.pSwapchains = swapChains;
-
-    present_info.pImageIndices = &image_index;
-
-    result = ctx.Disp.queuePresentKHR(data.PresentQueue, &present_info);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || data.FramebufferResized)
-    {
-        data.FramebufferResized = false;
-        RecreateSwapchain(ctx, data);
-        return;
-    }
-    else if (result != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to present swapchain image!");
-    }
-
-    data.CurrentFrame = (data.CurrentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    DrawFrame(ctx, data);
+    PresentFrame(ctx, data);
 }
 
 void VulkanCleanup(VulkanContext &ctx, RenderData &data)

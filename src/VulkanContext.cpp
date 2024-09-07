@@ -50,16 +50,17 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
     Disp = Device.make_table();
 
     // Swapchain creation:
-    CreateSwapchain();
+    CreateSwapchain(width, height);
 }
 
-void VulkanContext::CreateSwapchain()
+void VulkanContext::CreateSwapchain(uint32_t width, uint32_t height)
 {
     // To manually specify format and present mode:
     //.set_desired_format(VkSurfaceFormatKHR)
     //.set_desired_present_mode(VkPresentModeKHR)
 
-    auto swap_ret = vkb::SwapchainBuilder(Device).set_old_swapchain(Swapchain).build();
+    auto swap_ret =
+        vkb::SwapchainBuilder(Device).set_old_swapchain(Swapchain).set_desired_extent(width, height).build();
 
     if (!swap_ret)
         throw std::runtime_error(swap_ret.error().message());

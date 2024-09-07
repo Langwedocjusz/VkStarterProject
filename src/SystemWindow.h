@@ -11,7 +11,10 @@ class SystemWindow {
     ~SystemWindow();
 
     bool ShouldClose();
+
     void PollEvents();
+    void WaitEvents();
+
     VkSurfaceKHR CreateSurface(VkInstance instance, VkAllocationCallbacks *allocator = nullptr);
 
   private:

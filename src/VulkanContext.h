@@ -6,7 +6,7 @@
 struct VulkanContext {
     VulkanContext(uint32_t width, uint32_t height, std::string title, void *usr_ptr = nullptr);
 
-    void CreateSwapchain();
+    void CreateSwapchain(uint32_t width, uint32_t height);
 
     SystemWindow Window;
 
@@ -17,5 +17,7 @@ struct VulkanContext {
     vkb::DispatchTable Disp;
     vkb::Swapchain Swapchain;
 
-    bool FramebufferResized = false;
+    bool SwapchainOk = true;
+    uint32_t Width;
+    uint32_t Height;
 };

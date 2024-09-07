@@ -2,7 +2,7 @@
 
 #include "Renderer.h"
 
-Application::Application() : m_Ctx(m_Width, m_Height, m_Title, static_cast<void*>(this))
+Application::Application() : m_Ctx(800, 600, "Vulkan", static_cast<void *>(this))
 {
     renderer::CreateQueues(m_Ctx, m_Data);
     renderer::CreateRenderPass(m_Ctx, m_Data);
@@ -25,13 +25,29 @@ void Application::Run()
 {
     while (!m_Ctx.Window.ShouldClose())
     {
-        m_Ctx.Window.PollEvents();
+        // Swapchain logic based on:
+        // https://gist.github.com/nanokatze/bb03a486571e13a7b6a8709368bd87cf#file-handling-window-resize-md
+
+        if (m_Ctx.SwapchainOk)
+        {
+            m_Ctx.Window.PollEvents();
+        }
+        else
+        {
+            m_Ctx.Window.WaitEvents();
+            continue;
+        }
 
         renderer::DrawFrame(m_Ctx, m_Data);
+        renderer::PresentFrame(m_Ctx, m_Data);
     }
 }
 
-void Application::OnResize()
+void Application::OnResize(uint32_t width, uint32_t height)
 {
-    m_Data.FramebufferResized = true;
+    m_Ctx.SwapchainOk = false;
+    m_Ctx.Width = width;
+    m_Ctx.Height = height;
+
+    renderer::RecreateSwapchain(m_Ctx, m_Data);
 }

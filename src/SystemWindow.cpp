@@ -8,10 +8,7 @@ static void FramebufferResizeCallback(GLFWwindow *window, int width, int height)
 {
     auto app = reinterpret_cast<Application *>(glfwGetWindowUserPointer(window));
 
-    app->OnResize();
-
-    (void)width;
-    (void)height;
+    app->OnResize(width, height);
 }
 
 SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title, void *usr_ptr)
@@ -55,6 +52,11 @@ bool SystemWindow::ShouldClose()
 void SystemWindow::PollEvents()
 {
     glfwPollEvents();
+}
+
+void SystemWindow::WaitEvents()
+{
+    glfwWaitEvents();
 }
 
 VkSurfaceKHR SystemWindow::CreateSurface(VkInstance instance, VkAllocationCallbacks *allocator)
