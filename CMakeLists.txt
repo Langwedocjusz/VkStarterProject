@@ -27,6 +27,8 @@ target_sources(${PROJECT_NAME}
         #Also listing headers to make them visible in IDEs
         src/Application.h
         src/Application.cpp
+        src/ImGuiContext.h
+        src/ImGuiContext.cpp
         src/main.cpp
         src/RenderData.h
         src/Renderer.h

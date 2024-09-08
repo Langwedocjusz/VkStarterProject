@@ -2,9 +2,7 @@
 
 #include "Utils.h"
 
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_vulkan.h"
+#include "ImGuiContext.h"
 
 #include <iostream>
 
@@ -340,10 +338,7 @@ void RecordCommandBuffer(VulkanContext &ctx, RenderData &data,
 
     ctx.Disp.cmdDraw(commandBuffer, 3, 1, 0, 0);
 
-    // Record dear imgui primitives into command buffer
-    ImDrawData *draw_data = ImGui::GetDrawData();
-    if (draw_data)
-        ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
+    ImGuiContext::RecordImguiToCommandBuffer(commandBuffer);
 
     ctx.Disp.cmdEndRenderPass(commandBuffer);
 

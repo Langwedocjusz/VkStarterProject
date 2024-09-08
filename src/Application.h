@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ImGuiContext.h"
 #include "RenderData.h"
 #include "VulkanContext.h"
 
@@ -16,5 +17,5 @@ class Application {
     VulkanContext m_Ctx;
     RenderData m_Data;
 
-    VkDescriptorPool m_ImguiPool; // to-do: move this
+    ImGuiContext m_ImGuiCtx;
 };
