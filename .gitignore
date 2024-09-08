@@ -3,3 +3,6 @@ build/
 
 #Compiled shader bytecode:
 assets/spirv
+
+#Imgui conifg:
+imgui.ini
