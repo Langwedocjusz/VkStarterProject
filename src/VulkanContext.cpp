@@ -1,6 +1,7 @@
 #include "VulkanContext.h"
 
-VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title, void *usr_ptr)
+VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
+                             void *usr_ptr)
     : Window(width, height, title, usr_ptr)
 {
     // Initialization done using vk-bootstrap, docs available at
@@ -34,7 +35,8 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
     // And then:
     // .set_required_features(required_features);
 
-    auto phys_device_ret = vkb::PhysicalDeviceSelector(Instance).set_surface(Surface).select();
+    auto phys_device_ret =
+        vkb::PhysicalDeviceSelector(Instance).set_surface(Surface).select();
 
     if (!phys_device_ret)
         throw std::runtime_error(phys_device_ret.error().message());
@@ -59,8 +61,10 @@ void VulkanContext::CreateSwapchain(uint32_t width, uint32_t height)
     //.set_desired_format(VkSurfaceFormatKHR)
     //.set_desired_present_mode(VkPresentModeKHR)
 
-    auto swap_ret =
-        vkb::SwapchainBuilder(Device).set_old_swapchain(Swapchain).set_desired_extent(width, height).build();
+    auto swap_ret = vkb::SwapchainBuilder(Device)
+                        .set_old_swapchain(Swapchain)
+                        .set_desired_extent(width, height)
+                        .build();
 
     if (!swap_ret)
         throw std::runtime_error(swap_ret.error().message());

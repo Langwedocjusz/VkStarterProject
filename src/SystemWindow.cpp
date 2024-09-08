@@ -11,7 +11,8 @@ static void FramebufferResizeCallback(GLFWwindow *window, int width, int height)
     app->OnResize(width, height);
 }
 
-SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title, void *usr_ptr)
+SystemWindow::SystemWindow(uint32_t width, uint32_t height, std::string title,
+                           void *usr_ptr)
 {
     auto error_callback = [](int error, const char *description) {
         (void)error;
@@ -59,7 +60,8 @@ void SystemWindow::WaitEvents()
     glfwWaitEvents();
 }
 
-VkSurfaceKHR SystemWindow::CreateSurface(VkInstance instance, VkAllocationCallbacks *allocator)
+VkSurfaceKHR SystemWindow::CreateSurface(VkInstance instance,
+                                         VkAllocationCallbacks *allocator)
 {
     VkSurfaceKHR surface = VK_NULL_HANDLE;
     VkResult err = glfwCreateWindowSurface(instance, m_Window, allocator, &surface);

@@ -4,7 +4,8 @@
 #include "VkBootstrap.h"
 
 struct VulkanContext {
-    VulkanContext(uint32_t width, uint32_t height, std::string title, void *usr_ptr = nullptr);
+    VulkanContext(uint32_t width, uint32_t height, std::string title,
+                  void *usr_ptr = nullptr);
 
     void CreateSwapchain(uint32_t width, uint32_t height);
 

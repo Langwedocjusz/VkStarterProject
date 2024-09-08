@@ -42,10 +42,10 @@ static void InitImGui(VulkanContext &ctx, RenderData &data, VkDescriptorPool &im
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
 
     // Setup Dear ImGui style
-    //Note: currently colors are too bright because of color correction being applied twice
-    //in ImGui itself and in Vulkan
+    // Note: currently colors are too bright because of color correction being
+    // applied twice in ImGui itself and in Vulkan
     ImGui::StyleColorsDark();
-    //ImGui::StyleColorsLight();
+    // ImGui::StyleColorsLight();
 
     // Init backends:
     ImGui_ImplGlfw_InitForVulkan(ctx.Window.get(), true);
@@ -62,9 +62,9 @@ static void InitImGui(VulkanContext &ctx, RenderData &data, VkDescriptorPool &im
     init_info.DescriptorPool = imgui_pool;
     init_info.RenderPass = data.RenderPass;
     init_info.Subpass = 0;
-    init_info.MinImageCount = 2;                   // to-do: retrieve this from ctx/data
-    init_info.ImageCount = 2;                      // to-do: retrieve this from ctx/data
-    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT; // to-do: retrieve this from ctx/data
+    init_info.MinImageCount = renderer::MAX_FRAMES_IN_FLIGHT;
+    init_info.ImageCount = renderer::MAX_FRAMES_IN_FLIGHT;
+    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT; // to-do: set this in ctx/data and retrieve from there
     // init_info.Allocator = g_Allocator;
     init_info.CheckVkResultFn = check_vk_result;
 
@@ -123,7 +123,7 @@ void Application::Run()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        if(show_demo_window)
+        if (show_demo_window)
             ImGui::ShowDemoWindow(&show_demo_window);
 
         ImGui::Render();

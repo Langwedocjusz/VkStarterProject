@@ -22,7 +22,6 @@ struct RenderData {
     std::vector<VkSemaphore> RenderCompletedSemaphores;
 
     std::vector<VkFence> InFlightFences;
-    std::vector<VkFence> ImageInFlight;
 
     size_t FrameSemaphoreIndex = 0;
     uint32_t FrameImageIndex = 0;

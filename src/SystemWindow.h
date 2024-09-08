@@ -7,7 +7,8 @@
 
 class SystemWindow {
   public:
-    SystemWindow(uint32_t width, uint32_t height, std::string title, void *usr_ptr = nullptr);
+    SystemWindow(uint32_t width, uint32_t height, std::string title,
+                 void *usr_ptr = nullptr);
     ~SystemWindow();
 
     bool ShouldClose();
@@ -20,7 +21,8 @@ class SystemWindow {
         return m_Window;
     }
 
-    VkSurfaceKHR CreateSurface(VkInstance instance, VkAllocationCallbacks *allocator = nullptr);
+    VkSurfaceKHR CreateSurface(VkInstance instance,
+                               VkAllocationCallbacks *allocator = nullptr);
 
   private:
     GLFWwindow *m_Window = nullptr;
