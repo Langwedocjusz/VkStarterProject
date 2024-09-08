@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ImGuiContext.h"
-#include "RenderData.h"
+#include "Renderer.h"
 #include "VulkanContext.h"
 
 class Application {
@@ -15,7 +15,7 @@ class Application {
 
   private:
     VulkanContext m_Ctx;
-    RenderData m_Data;
+    Renderer m_Renderer;
 
     ImGuiContext m_ImGuiCtx;
 };

@@ -3,30 +3,38 @@
 #include "Utils.h"
 
 #include "ImGuiContext.h"
+#include "imgui.h"
 
 #include <iostream>
 
-static VkShaderModule CreateShaderModule(VulkanContext &ctx,
-                                         const std::vector<char> &code)
+void Renderer::OnInit(VulkanContext &ctx)
 {
-    VkShaderModuleCreateInfo create_info = {};
-    create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    create_info.codeSize = code.size();
-    create_info.pCode = reinterpret_cast<const uint32_t *>(code.data());
-
-    VkShaderModule shaderModule;
-    if (ctx.Disp.createShaderModule(&create_info, nullptr, &shaderModule) != VK_SUCCESS)
-    {
-        std::cerr << "Failed to create a shader module!\n";
-        return VK_NULL_HANDLE; // failed to create shader module
-    }
-
-    return shaderModule;
+    CreateQueues(ctx);
+    CreateRenderPass(ctx);
+    CreateGraphicsPipeline(ctx);
+    CreateFramebuffers(ctx);
+    CreateCommandPool(ctx);
+    CreateCommandBuffers(ctx);
+    CreateSyncObjects(ctx);
 }
 
-namespace renderer
+void Renderer::OnUpdate()
 {
-void CreateQueues(VulkanContext &ctx, RenderData &data)
+}
+
+void Renderer::OnImGui()
+{
+    if (show_demo_window)
+        ImGui::ShowDemoWindow(&show_demo_window);
+}
+
+void Renderer::OnRender(VulkanContext &ctx)
+{
+    DrawFrame(ctx);
+    PresentFrame(ctx);
+}
+
+void Renderer::CreateQueues(VulkanContext &ctx)
 {
     auto gq = ctx.Device.get_queue(vkb::QueueType::graphics);
     if (!gq.has_value())
@@ -34,7 +42,7 @@ void CreateQueues(VulkanContext &ctx, RenderData &data)
         auto err_msg = "Failed to get graphics queue: " + gq.error().message();
         throw std::runtime_error(err_msg);
     }
-    data.GraphicsQueue = gq.value();
+    GraphicsQueue = gq.value();
 
     auto pq = ctx.Device.get_queue(vkb::QueueType::present);
     if (!pq.has_value())
@@ -42,10 +50,10 @@ void CreateQueues(VulkanContext &ctx, RenderData &data)
         auto err_msg = "Failed to get present queue: " + pq.error().message();
         throw std::runtime_error(err_msg);
     }
-    data.PresentQueue = pq.value();
+    PresentQueue = pq.value();
 }
 
-void CreateRenderPass(VulkanContext &ctx, RenderData &data)
+void Renderer::CreateRenderPass(VulkanContext &ctx)
 {
     VkAttachmentDescription color_attachment = {};
     color_attachment.format = ctx.Swapchain.image_format;
@@ -84,19 +92,18 @@ void CreateRenderPass(VulkanContext &ctx, RenderData &data)
     render_pass_info.dependencyCount = 1;
     render_pass_info.pDependencies = &dependency;
 
-    if (ctx.Disp.createRenderPass(&render_pass_info, nullptr, &data.RenderPass) !=
-        VK_SUCCESS)
+    if (ctx.Disp.createRenderPass(&render_pass_info, nullptr, &RenderPass) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a render pass!");
 }
 
-void CreateGraphicsPipeline(VulkanContext &ctx, RenderData &data)
+void Renderer::CreateGraphicsPipeline(VulkanContext &ctx)
 {
     // Graphics pipeline:
     auto vert_code = utils::ReadFileBinary("assets/spirv/HelloTriangleVert.spv");
     auto frag_code = utils::ReadFileBinary("assets/spirv/HelloTriangleFrag.spv");
 
-    VkShaderModule vert_module = CreateShaderModule(ctx, vert_code);
-    VkShaderModule frag_module = CreateShaderModule(ctx, frag_code);
+    VkShaderModule vert_module = utils::CreateShaderModule(ctx, vert_code);
+    VkShaderModule frag_module = utils::CreateShaderModule(ctx, frag_code);
 
     if (vert_module == VK_NULL_HANDLE || frag_module == VK_NULL_HANDLE)
         throw std::runtime_error("Failed to create a shader module!");
@@ -181,8 +188,8 @@ void CreateGraphicsPipeline(VulkanContext &ctx, RenderData &data)
     pipeline_layout_info.setLayoutCount = 0;
     pipeline_layout_info.pushConstantRangeCount = 0;
 
-    if (ctx.Disp.createPipelineLayout(&pipeline_layout_info, nullptr,
-                                      &data.PipelineLayout) != VK_SUCCESS)
+    if (ctx.Disp.createPipelineLayout(&pipeline_layout_info, nullptr, &PipelineLayout) !=
+        VK_SUCCESS)
         throw std::runtime_error("Failed to create a pipeline layout!");
 
     std::vector<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT,
@@ -204,24 +211,24 @@ void CreateGraphicsPipeline(VulkanContext &ctx, RenderData &data)
     pipeline_info.pMultisampleState = &multisampling;
     pipeline_info.pColorBlendState = &color_blending;
     pipeline_info.pDynamicState = &dynamic_info;
-    pipeline_info.layout = data.PipelineLayout;
-    pipeline_info.renderPass = data.RenderPass;
+    pipeline_info.layout = PipelineLayout;
+    pipeline_info.renderPass = RenderPass;
     pipeline_info.subpass = 0;
     pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
 
     if (ctx.Disp.createGraphicsPipelines(VK_NULL_HANDLE, 1, &pipeline_info, nullptr,
-                                         &data.GraphicsPipeline) != VK_SUCCESS)
+                                         &GraphicsPipeline) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a Graphics Pipeline!");
 
     ctx.Disp.destroyShaderModule(frag_module, nullptr);
     ctx.Disp.destroyShaderModule(vert_module, nullptr);
 }
 
-void CreateSyncObjects(VulkanContext &ctx, RenderData &data)
+void Renderer::CreateSyncObjects(VulkanContext &ctx)
 {
-    data.ImageAcquiredSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    data.RenderCompletedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    data.InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+    ImageAcquiredSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    RenderCompletedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkSemaphoreCreateInfo semaphore_info = {};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -233,42 +240,41 @@ void CreateSyncObjects(VulkanContext &ctx, RenderData &data)
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         if (ctx.Disp.createSemaphore(&semaphore_info, nullptr,
-                                     &data.ImageAcquiredSemaphores[i]) != VK_SUCCESS ||
+                                     &ImageAcquiredSemaphores[i]) != VK_SUCCESS ||
             ctx.Disp.createSemaphore(&semaphore_info, nullptr,
-                                     &data.RenderCompletedSemaphores[i]) != VK_SUCCESS ||
-            ctx.Disp.createFence(&fence_info, nullptr, &data.InFlightFences[i]) !=
-                VK_SUCCESS)
+                                     &RenderCompletedSemaphores[i]) != VK_SUCCESS ||
+            ctx.Disp.createFence(&fence_info, nullptr, &InFlightFences[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create sync objects");
     }
 }
 
-void CreateFramebuffers(VulkanContext &ctx, RenderData &data)
+void Renderer::CreateFramebuffers(VulkanContext &ctx)
 {
-    data.SwapchainImages = ctx.Swapchain.get_images().value();
-    data.SwapchainImageViews = ctx.Swapchain.get_image_views().value();
+    SwapchainImages = ctx.Swapchain.get_images().value();
+    SwapchainImageViews = ctx.Swapchain.get_image_views().value();
 
-    data.Framebuffers.resize(data.SwapchainImageViews.size());
+    Framebuffers.resize(SwapchainImageViews.size());
 
-    for (size_t i = 0; i < data.SwapchainImageViews.size(); i++)
+    for (size_t i = 0; i < SwapchainImageViews.size(); i++)
     {
-        VkImageView attachments[] = {data.SwapchainImageViews[i]};
+        VkImageView attachments[] = {SwapchainImageViews[i]};
 
         VkFramebufferCreateInfo framebuffer_info = {};
         framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebuffer_info.renderPass = data.RenderPass;
+        framebuffer_info.renderPass = RenderPass;
         framebuffer_info.attachmentCount = 1;
         framebuffer_info.pAttachments = attachments;
         framebuffer_info.width = ctx.Swapchain.extent.width;
         framebuffer_info.height = ctx.Swapchain.extent.height;
         framebuffer_info.layers = 1;
 
-        if (ctx.Disp.createFramebuffer(&framebuffer_info, nullptr,
-                                       &data.Framebuffers[i]) != VK_SUCCESS)
+        if (ctx.Disp.createFramebuffer(&framebuffer_info, nullptr, &Framebuffers[i]) !=
+            VK_SUCCESS)
             throw std::runtime_error("Failed to create a framebuffer!");
     }
 }
 
-void CreateCommandPool(VulkanContext &ctx, RenderData &data)
+void Renderer::CreateCommandPool(VulkanContext &ctx)
 {
     VkCommandPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -276,27 +282,26 @@ void CreateCommandPool(VulkanContext &ctx, RenderData &data)
     pool_info.queueFamilyIndex =
         ctx.Device.get_queue_index(vkb::QueueType::graphics).value();
 
-    if (ctx.Disp.createCommandPool(&pool_info, nullptr, &data.CommandPool) != VK_SUCCESS)
+    if (ctx.Disp.createCommandPool(&pool_info, nullptr, &CommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a command pool!");
 }
 
-void CreateCommandBuffers(VulkanContext &ctx, RenderData &data)
+void Renderer::CreateCommandBuffers(VulkanContext &ctx)
 {
-    data.CommandBuffers.resize(data.Framebuffers.size());
+    CommandBuffers.resize(Framebuffers.size());
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = data.CommandPool;
+    allocInfo.commandPool = CommandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = (uint32_t)data.CommandBuffers.size();
+    allocInfo.commandBufferCount = (uint32_t)CommandBuffers.size();
 
-    if (ctx.Disp.allocateCommandBuffers(&allocInfo, data.CommandBuffers.data()) !=
-        VK_SUCCESS)
+    if (ctx.Disp.allocateCommandBuffers(&allocInfo, CommandBuffers.data()) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
-void RecordCommandBuffer(VulkanContext &ctx, RenderData &data,
-                         VkCommandBuffer commandBuffer, uint32_t imageIndex)
+void Renderer::RecordCommandBuffer(VulkanContext &ctx, VkCommandBuffer commandBuffer,
+                                   uint32_t imageIndex)
 {
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -306,8 +311,8 @@ void RecordCommandBuffer(VulkanContext &ctx, RenderData &data,
 
     VkRenderPassBeginInfo render_pass_info{};
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    render_pass_info.renderPass = data.RenderPass;
-    render_pass_info.framebuffer = data.Framebuffers[imageIndex];
+    render_pass_info.renderPass = RenderPass;
+    render_pass_info.framebuffer = Framebuffers[imageIndex];
     render_pass_info.renderArea.offset = {0, 0};
     render_pass_info.renderArea.extent = ctx.Swapchain.extent;
 
@@ -331,7 +336,7 @@ void RecordCommandBuffer(VulkanContext &ctx, RenderData &data,
                                 VK_SUBPASS_CONTENTS_INLINE);
 
     ctx.Disp.cmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                             data.GraphicsPipeline);
+                             GraphicsPipeline);
 
     ctx.Disp.cmdSetViewport(commandBuffer, 0, 1, &viewport);
     ctx.Disp.cmdSetScissor(commandBuffer, 0, 1, &scissor);
@@ -346,20 +351,18 @@ void RecordCommandBuffer(VulkanContext &ctx, RenderData &data,
         throw std::runtime_error("Failed to record command buffer!");
 }
 
-void DrawFrame(VulkanContext &ctx, RenderData &data)
+void Renderer::DrawFrame(VulkanContext &ctx)
 {
-    ctx.Disp.waitForFences(1, &data.InFlightFences[data.FrameSemaphoreIndex], VK_TRUE,
-                           UINT64_MAX);
+    ctx.Disp.waitForFences(1, &InFlightFences[FrameSemaphoreIndex], VK_TRUE, UINT64_MAX);
 
-    auto &imageAcquiredSemaphore = data.ImageAcquiredSemaphores[data.FrameSemaphoreIndex];
-    auto &renderCompleteSemaphore =
-        data.RenderCompletedSemaphores[data.FrameSemaphoreIndex];
+    auto &imageAcquiredSemaphore = ImageAcquiredSemaphores[FrameSemaphoreIndex];
+    auto &renderCompleteSemaphore = RenderCompletedSemaphores[FrameSemaphoreIndex];
 
     if (ctx.SwapchainOk)
     {
-        VkResult result = ctx.Disp.acquireNextImageKHR(
-            ctx.Swapchain, UINT64_MAX, imageAcquiredSemaphore, VK_NULL_HANDLE,
-            &data.FrameImageIndex);
+        VkResult result = ctx.Disp.acquireNextImageKHR(ctx.Swapchain, UINT64_MAX,
+                                                       imageAcquiredSemaphore,
+                                                       VK_NULL_HANDLE, &FrameImageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR)
         {
@@ -374,11 +377,10 @@ void DrawFrame(VulkanContext &ctx, RenderData &data)
     if (!ctx.SwapchainOk)
         return;
 
-    ctx.Disp.resetFences(1, &data.InFlightFences[data.FrameSemaphoreIndex]);
+    ctx.Disp.resetFences(1, &InFlightFences[FrameSemaphoreIndex]);
 
-    vkResetCommandBuffer(data.CommandBuffers[data.FrameSemaphoreIndex], 0);
-    RecordCommandBuffer(ctx, data, data.CommandBuffers[data.FrameSemaphoreIndex],
-                        data.FrameImageIndex);
+    vkResetCommandBuffer(CommandBuffers[FrameSemaphoreIndex], 0);
+    RecordCommandBuffer(ctx, CommandBuffers[FrameSemaphoreIndex], FrameImageIndex);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -390,20 +392,20 @@ void DrawFrame(VulkanContext &ctx, RenderData &data)
     submitInfo.pWaitDstStageMask = wait_stages;
 
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &data.CommandBuffers[data.FrameSemaphoreIndex];
+    submitInfo.pCommandBuffers = &CommandBuffers[FrameSemaphoreIndex];
 
     VkSemaphore signal_semaphores[] = {renderCompleteSemaphore};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signal_semaphores;
 
-    if (ctx.Disp.queueSubmit(data.GraphicsQueue, 1, &submitInfo,
-                             data.InFlightFences[data.FrameSemaphoreIndex]) != VK_SUCCESS)
+    if (ctx.Disp.queueSubmit(GraphicsQueue, 1, &submitInfo,
+                             InFlightFences[FrameSemaphoreIndex]) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to submit draw command buffer!");
     }
 }
 
-void PresentFrame(VulkanContext &ctx, RenderData &data)
+void Renderer::PresentFrame(VulkanContext &ctx)
 {
     if (!ctx.SwapchainOk)
         return;
@@ -411,8 +413,7 @@ void PresentFrame(VulkanContext &ctx, RenderData &data)
     VkPresentInfoKHR present_info = {};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
-    VkSemaphore signal_semaphores[] = {
-        data.RenderCompletedSemaphores[data.FrameSemaphoreIndex]};
+    VkSemaphore signal_semaphores[] = {RenderCompletedSemaphores[FrameSemaphoreIndex]};
     present_info.waitSemaphoreCount = 1;
     present_info.pWaitSemaphores = signal_semaphores;
 
@@ -420,9 +421,9 @@ void PresentFrame(VulkanContext &ctx, RenderData &data)
     present_info.swapchainCount = 1;
     present_info.pSwapchains = swapChains;
 
-    present_info.pImageIndices = &data.FrameImageIndex;
+    present_info.pImageIndices = &FrameImageIndex;
 
-    VkResult result = ctx.Disp.queuePresentKHR(data.PresentQueue, &present_info);
+    VkResult result = ctx.Disp.queuePresentKHR(PresentQueue, &present_info);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
     {
         ctx.SwapchainOk = false;
@@ -433,59 +434,53 @@ void PresentFrame(VulkanContext &ctx, RenderData &data)
         throw std::runtime_error("Failed to present swapchain image!");
     }
 
-    data.FrameSemaphoreIndex = (data.FrameSemaphoreIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+    FrameSemaphoreIndex = (FrameSemaphoreIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void RecreateSwapchain(VulkanContext &ctx, RenderData &data)
+void Renderer::RecreateSwapchain(VulkanContext &ctx)
 {
     ctx.Disp.deviceWaitIdle();
 
-    ctx.Disp.destroyCommandPool(data.CommandPool, nullptr);
+    ctx.Disp.destroyCommandPool(CommandPool, nullptr);
 
-    for (auto framebuffer : data.Framebuffers)
+    for (auto framebuffer : Framebuffers)
     {
         ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
     }
 
-    ctx.Swapchain.destroy_image_views(data.SwapchainImageViews);
+    ctx.Swapchain.destroy_image_views(SwapchainImageViews);
 
     ctx.CreateSwapchain(ctx.Width, ctx.Height);
 
-    CreateFramebuffers(ctx, data);
-    CreateCommandPool(ctx, data);
-    CreateCommandBuffers(ctx, data);
+    CreateFramebuffers(ctx);
+    CreateCommandPool(ctx);
+    CreateCommandBuffers(ctx);
 
     ctx.SwapchainOk = true;
 
-    // DrawFrame(ctx, data);
-    // PresentFrame(ctx, data);
+    // DrawFrame(ctx);
+    // PresentFrame(ctx);
 }
 
-void VulkanCleanup(VulkanContext &ctx, RenderData &data)
+void Renderer::VulkanCleanup(VulkanContext &ctx)
 {
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        ctx.Disp.destroySemaphore(data.RenderCompletedSemaphores[i], nullptr);
-        ctx.Disp.destroySemaphore(data.ImageAcquiredSemaphores[i], nullptr);
-        ctx.Disp.destroyFence(data.InFlightFences[i], nullptr);
+        ctx.Disp.destroySemaphore(RenderCompletedSemaphores[i], nullptr);
+        ctx.Disp.destroySemaphore(ImageAcquiredSemaphores[i], nullptr);
+        ctx.Disp.destroyFence(InFlightFences[i], nullptr);
     }
 
-    ctx.Disp.destroyCommandPool(data.CommandPool, nullptr);
+    ctx.Disp.destroyCommandPool(CommandPool, nullptr);
 
-    for (auto framebuffer : data.Framebuffers)
+    for (auto framebuffer : Framebuffers)
     {
         ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
     }
 
-    ctx.Disp.destroyPipeline(data.GraphicsPipeline, nullptr);
-    ctx.Disp.destroyPipelineLayout(data.PipelineLayout, nullptr);
-    ctx.Disp.destroyRenderPass(data.RenderPass, nullptr);
+    ctx.Disp.destroyPipeline(GraphicsPipeline, nullptr);
+    ctx.Disp.destroyPipelineLayout(PipelineLayout, nullptr);
+    ctx.Disp.destroyRenderPass(RenderPass, nullptr);
 
-    ctx.Swapchain.destroy_image_views(data.SwapchainImageViews);
-
-    vkb::destroy_swapchain(ctx.Swapchain);
-    vkb::destroy_device(ctx.Device);
-    vkb::destroy_surface(ctx.Instance, ctx.Surface);
-    vkb::destroy_instance(ctx.Instance);
+    ctx.Swapchain.destroy_image_views(SwapchainImageViews);
 }
-} // namespace renderer

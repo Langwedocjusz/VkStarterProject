@@ -30,9 +30,8 @@ target_sources(${PROJECT_NAME}
         src/ImGuiContext.h
         src/ImGuiContext.cpp
         src/main.cpp
-        src/RenderData.h
-        src/Renderer.h
-        src/Renderer.cpp
+        src/Renderers/Renderer.h
+        src/Renderers/Renderer.cpp
         src/SystemWindow.h
         src/SystemWindow.cpp
         src/Utils.h
@@ -41,8 +40,11 @@ target_sources(${PROJECT_NAME}
         src/VulkanContext.cpp
 )
 
+target_include_directories(${PROJECT_NAME} PRIVATE src src/Renderers)
+
 #For filters in IDEs like Visual studio:
 source_group(src REGULAR_EXPRESSION "src/*")
+source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")
 
 #Configure cmake options for dependencies:
 set(IMGUI_BACKEND_GLFW ON)

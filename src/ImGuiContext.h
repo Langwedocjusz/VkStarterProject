@@ -1,13 +1,11 @@
 #pragma once
 
-#include "RenderData.h"
+#include "Renderer.h"
 #include "VulkanContext.h"
 
 class ImGuiContext {
   public:
-    ImGuiContext() = default;
-
-    void OnInit(VulkanContext &ctx, RenderData &data);
+    void OnInit(VulkanContext &ctx, const Renderer &renderer);
     void OnDestroy(VulkanContext &ctx);
 
     void BeginGuiFrame();
@@ -20,5 +18,5 @@ class ImGuiContext {
 
     void InitImGui();
     void CreateDescriptorPool(VulkanContext &ctx);
-    void InitImGuiVulkanBackend(VulkanContext &ctx, RenderData &data);
+    void InitImGuiVulkanBackend(VulkanContext &ctx, const Renderer &renderer);
 };

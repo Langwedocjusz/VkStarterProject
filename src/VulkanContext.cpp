@@ -55,6 +55,14 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
     CreateSwapchain(width, height);
 }
 
+VulkanContext::~VulkanContext()
+{
+    vkb::destroy_swapchain(Swapchain);
+    vkb::destroy_device(Device);
+    vkb::destroy_surface(Instance, Surface);
+    vkb::destroy_instance(Instance);
+}
+
 void VulkanContext::CreateSwapchain(uint32_t width, uint32_t height)
 {
     // To manually specify format and present mode:
