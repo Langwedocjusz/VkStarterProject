@@ -343,7 +343,7 @@ void Renderer::RecordCommandBuffer(VulkanContext &ctx, VkCommandBuffer commandBu
 
     ctx.Disp.cmdDraw(commandBuffer, 3, 1, 0, 0);
 
-    ImGuiContext::RecordImguiToCommandBuffer(commandBuffer);
+    ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
 
     ctx.Disp.cmdEndRenderPass(commandBuffer);
 

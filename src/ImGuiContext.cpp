@@ -4,14 +4,14 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
-void ImGuiContext::OnInit(VulkanContext &ctx, const Renderer &renderer)
+void ImGuiContextManager::OnInit(VulkanContext &ctx, const Renderer &renderer)
 {
     CreateDescriptorPool(ctx);
     InitImGui();
     InitImGuiVulkanBackend(ctx, renderer);
 }
 
-void ImGuiContext::InitImGui()
+void ImGuiContextManager::InitImGui()
 {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -25,7 +25,7 @@ void ImGuiContext::InitImGui()
     // ImGui::StyleColorsLight();
 }
 
-void ImGuiContext::OnDestroy(VulkanContext &ctx)
+void ImGuiContextManager::OnDestroy(VulkanContext &ctx)
 {
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
@@ -34,19 +34,19 @@ void ImGuiContext::OnDestroy(VulkanContext &ctx)
     vkDestroyDescriptorPool(ctx.Device, m_ImguiPool, nullptr);
 }
 
-void ImGuiContext::BeginGuiFrame()
+void ImGuiContextManager::BeginGuiFrame()
 {
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 }
 
-void ImGuiContext::FinalizeGuiFrame()
+void ImGuiContextManager::FinalizeGuiFrame()
 {
     ImGui::Render();
 }
 
-void ImGuiContext::RecordImguiToCommandBuffer(VkCommandBuffer commandBuffer)
+void ImGuiContextManager::RecordImguiToCommandBuffer(VkCommandBuffer commandBuffer)
 {
     ImDrawData *draw_data = ImGui::GetDrawData();
 
@@ -54,7 +54,7 @@ void ImGuiContext::RecordImguiToCommandBuffer(VkCommandBuffer commandBuffer)
         ImGui_ImplVulkan_RenderDrawData(draw_data, commandBuffer);
 }
 
-void ImGuiContext::CreateDescriptorPool(VulkanContext &ctx)
+void ImGuiContextManager::CreateDescriptorPool(VulkanContext &ctx)
 {
     VkDescriptorPoolSize pool_sizes[] = {
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
@@ -81,7 +81,7 @@ void ImGuiContext::CreateDescriptorPool(VulkanContext &ctx)
         abort();
 }
 
-void ImGuiContext::InitImGuiVulkanBackend(VulkanContext &ctx, const Renderer &renderer)
+void ImGuiContextManager::InitImGuiVulkanBackend(VulkanContext &ctx, const Renderer &renderer)
 {
     ImGui_ImplGlfw_InitForVulkan(ctx.Window.get(), true);
 
@@ -97,8 +97,8 @@ void ImGuiContext::InitImGuiVulkanBackend(VulkanContext &ctx, const Renderer &re
     init_info.DescriptorPool = m_ImguiPool;
     init_info.RenderPass = renderer.getRenderPass();
     init_info.Subpass = 0;
-    init_info.MinImageCount = renderer.getFramesInFlight();
-    init_info.ImageCount = renderer.getFramesInFlight();
+    init_info.MinImageCount = static_cast<uint32_t>(renderer.getFramesInFlight());
+    init_info.ImageCount = static_cast<uint32_t>(renderer.getFramesInFlight());
     init_info.MSAASamples = renderer.getMSAACount();
     // init_info.Allocator = g_Allocator;
     init_info.CheckVkResultFn = check_vk_result;

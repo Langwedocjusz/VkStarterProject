@@ -17,5 +17,5 @@ class Application {
     VulkanContext m_Ctx;
     Renderer m_Renderer;
 
-    ImGuiContext m_ImGuiCtx;
+    ImGuiContextManager m_ImGuiCtx;
 };

@@ -22,7 +22,7 @@ class Renderer {
     {
         return RenderPass;
     }
-    int getFramesInFlight() const
+    size_t getFramesInFlight() const
     {
         return MAX_FRAMES_IN_FLIGHT;
     }

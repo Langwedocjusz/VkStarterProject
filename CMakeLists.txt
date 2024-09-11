@@ -22,6 +22,7 @@ endif()
 #To enable usage of clang-tidy:
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE INTERNAL "")
 
+#Sources
 target_sources(${PROJECT_NAME}
     PRIVATE
         #Also listing headers to make them visible in IDEs
@@ -40,15 +41,17 @@ target_sources(${PROJECT_NAME}
         src/VulkanContext.cpp
 )
 
+#Implementation files for imgui
+file(GLOB imgui_impl vendor/imgui/backends/imgui_impl_vulkan.cpp vendor/imgui/backends/imgui_impl_glfw.cpp)
+target_sources(${PROJECT_NAME} PRIVATE ${imgui_impl})
+
+#Include directories
 target_include_directories(${PROJECT_NAME} PRIVATE src src/Renderers)
 
 #For filters in IDEs like Visual studio:
 source_group(src REGULAR_EXPRESSION "src/*")
 source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")
-
-#Configure cmake options for dependencies:
-set(IMGUI_BACKEND_GLFW ON)
-set(IMGUI_BACKEND_VULKAN ON)
+source_group(imgui_impl FILES ${imgui_impl})
 
 #Get dependencies:
 find_package(Vulkan REQUIRED)

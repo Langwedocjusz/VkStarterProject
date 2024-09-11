@@ -3,7 +3,7 @@
 #include "Renderer.h"
 #include "VulkanContext.h"
 
-class ImGuiContext {
+class ImGuiContextManager {
   public:
     void OnInit(VulkanContext &ctx, const Renderer &renderer);
     void OnDestroy(VulkanContext &ctx);
