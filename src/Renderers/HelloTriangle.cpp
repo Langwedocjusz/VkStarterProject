@@ -1,59 +1,17 @@
-#include "Renderer.h"
+#include "HelloTriangle.h"
 
 #include "Utils.h"
 
 #include "ImGuiContext.h"
 #include "imgui.h"
 
-#include <iostream>
-
-void Renderer::OnInit(VulkanContext &ctx)
-{
-    CreateQueues(ctx);
-    CreateRenderPass(ctx);
-    CreateGraphicsPipeline(ctx);
-    CreateFramebuffers(ctx);
-    CreateCommandPool(ctx);
-    CreateCommandBuffers(ctx);
-    CreateSyncObjects(ctx);
-}
-
-void Renderer::OnUpdate()
-{
-}
-
-void Renderer::OnImGui()
+void HelloTriangleRenderer::OnImGui()
 {
     if (show_demo_window)
         ImGui::ShowDemoWindow(&show_demo_window);
 }
 
-void Renderer::OnRender(VulkanContext &ctx)
-{
-    DrawFrame(ctx);
-    PresentFrame(ctx);
-}
-
-void Renderer::CreateQueues(VulkanContext &ctx)
-{
-    auto gq = ctx.Device.get_queue(vkb::QueueType::graphics);
-    if (!gq.has_value())
-    {
-        auto err_msg = "Failed to get graphics queue: " + gq.error().message();
-        throw std::runtime_error(err_msg);
-    }
-    GraphicsQueue = gq.value();
-
-    auto pq = ctx.Device.get_queue(vkb::QueueType::present);
-    if (!pq.has_value())
-    {
-        auto err_msg = "Failed to get present queue: " + pq.error().message();
-        throw std::runtime_error(err_msg);
-    }
-    PresentQueue = pq.value();
-}
-
-void Renderer::CreateRenderPass(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateRenderPasses(VulkanContext &ctx)
 {
     VkAttachmentDescription color_attachment = {};
     color_attachment.format = ctx.Swapchain.image_format;
@@ -96,7 +54,7 @@ void Renderer::CreateRenderPass(VulkanContext &ctx)
         throw std::runtime_error("Failed to create a render pass!");
 }
 
-void Renderer::CreateGraphicsPipeline(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateGraphicsPipelines(VulkanContext &ctx)
 {
     // Graphics pipeline:
     auto vert_code = utils::ReadFileBinary("assets/spirv/HelloTriangleVert.spv");
@@ -224,35 +182,8 @@ void Renderer::CreateGraphicsPipeline(VulkanContext &ctx)
     ctx.Disp.destroyShaderModule(vert_module, nullptr);
 }
 
-void Renderer::CreateSyncObjects(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateFramebuffers(VulkanContext &ctx)
 {
-    ImageAcquiredSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    RenderCompletedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
-
-    VkSemaphoreCreateInfo semaphore_info = {};
-    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-    VkFenceCreateInfo fence_info = {};
-    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        if (ctx.Disp.createSemaphore(&semaphore_info, nullptr,
-                                     &ImageAcquiredSemaphores[i]) != VK_SUCCESS ||
-            ctx.Disp.createSemaphore(&semaphore_info, nullptr,
-                                     &RenderCompletedSemaphores[i]) != VK_SUCCESS ||
-            ctx.Disp.createFence(&fence_info, nullptr, &InFlightFences[i]) != VK_SUCCESS)
-            throw std::runtime_error("Failed to create sync objects");
-    }
-}
-
-void Renderer::CreateFramebuffers(VulkanContext &ctx)
-{
-    SwapchainImages = ctx.Swapchain.get_images().value();
-    SwapchainImageViews = ctx.Swapchain.get_image_views().value();
-
     Framebuffers.resize(SwapchainImageViews.size());
 
     for (size_t i = 0; i < SwapchainImageViews.size(); i++)
@@ -274,7 +205,7 @@ void Renderer::CreateFramebuffers(VulkanContext &ctx)
     }
 }
 
-void Renderer::CreateCommandPool(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateCommandPools(VulkanContext &ctx)
 {
     VkCommandPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -286,7 +217,7 @@ void Renderer::CreateCommandPool(VulkanContext &ctx)
         throw std::runtime_error("Failed to create a command pool!");
 }
 
-void Renderer::CreateCommandBuffers(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateCommandBuffers(VulkanContext &ctx)
 {
     CommandBuffers.resize(Framebuffers.size());
 
@@ -300,84 +231,10 @@ void Renderer::CreateCommandBuffers(VulkanContext &ctx)
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
-void Renderer::RecordCommandBuffer(VulkanContext &ctx, VkCommandBuffer commandBuffer,
-                                   uint32_t imageIndex)
+void HelloTriangleRenderer::SubmitCommandBuffers(VulkanContext &ctx)
 {
-    VkCommandBufferBeginInfo begin_info = {};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-    if (ctx.Disp.beginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
-        throw std::runtime_error("Failed to begin recording command buffer!");
-
-    VkRenderPassBeginInfo render_pass_info{};
-    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    render_pass_info.renderPass = RenderPass;
-    render_pass_info.framebuffer = Framebuffers[imageIndex];
-    render_pass_info.renderArea.offset = {0, 0};
-    render_pass_info.renderArea.extent = ctx.Swapchain.extent;
-
-    VkClearValue clearColor{{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    render_pass_info.clearValueCount = 1;
-    render_pass_info.pClearValues = &clearColor;
-
-    VkViewport viewport = {};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(ctx.Swapchain.extent.width);
-    viewport.height = static_cast<float>(ctx.Swapchain.extent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-
-    VkRect2D scissor = {};
-    scissor.offset = {0, 0};
-    scissor.extent = ctx.Swapchain.extent;
-
-    ctx.Disp.cmdBeginRenderPass(commandBuffer, &render_pass_info,
-                                VK_SUBPASS_CONTENTS_INLINE);
-
-    ctx.Disp.cmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                             GraphicsPipeline);
-
-    ctx.Disp.cmdSetViewport(commandBuffer, 0, 1, &viewport);
-    ctx.Disp.cmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    ctx.Disp.cmdDraw(commandBuffer, 3, 1, 0, 0);
-
-    ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
-
-    ctx.Disp.cmdEndRenderPass(commandBuffer);
-
-    if (ctx.Disp.endCommandBuffer(commandBuffer) != VK_SUCCESS)
-        throw std::runtime_error("Failed to record command buffer!");
-}
-
-void Renderer::DrawFrame(VulkanContext &ctx)
-{
-    ctx.Disp.waitForFences(1, &InFlightFences[FrameSemaphoreIndex], VK_TRUE, UINT64_MAX);
-
     auto &imageAcquiredSemaphore = ImageAcquiredSemaphores[FrameSemaphoreIndex];
     auto &renderCompleteSemaphore = RenderCompletedSemaphores[FrameSemaphoreIndex];
-
-    if (ctx.SwapchainOk)
-    {
-        VkResult result = ctx.Disp.acquireNextImageKHR(ctx.Swapchain, UINT64_MAX,
-                                                       imageAcquiredSemaphore,
-                                                       VK_NULL_HANDLE, &FrameImageIndex);
-
-        if (result == VK_ERROR_OUT_OF_DATE_KHR)
-        {
-            ctx.SwapchainOk = false;
-        }
-        else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
-        {
-            throw std::runtime_error("Failed to acquire swapchain image!");
-        }
-    }
-
-    if (!ctx.SwapchainOk)
-        return;
-
-    ctx.Disp.resetFences(1, &InFlightFences[FrameSemaphoreIndex]);
 
     vkResetCommandBuffer(CommandBuffers[FrameSemaphoreIndex], 0);
     RecordCommandBuffer(ctx, CommandBuffers[FrameSemaphoreIndex], FrameImageIndex);
@@ -405,82 +262,84 @@ void Renderer::DrawFrame(VulkanContext &ctx)
     }
 }
 
-void Renderer::PresentFrame(VulkanContext &ctx)
+void HelloTriangleRenderer::RecordCommandBuffer(VulkanContext &ctx,
+                                                VkCommandBuffer commandBuffer,
+                                                uint32_t imageIndex)
 {
-    if (!ctx.SwapchainOk)
-        return;
+    VkCommandBufferBeginInfo begin_info = {};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    VkPresentInfoKHR present_info = {};
-    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    if (ctx.Disp.beginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
+        throw std::runtime_error("Failed to begin recording command buffer!");
 
-    VkSemaphore signal_semaphores[] = {RenderCompletedSemaphores[FrameSemaphoreIndex]};
-    present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = signal_semaphores;
+    VkRenderPassBeginInfo render_pass_info{};
+    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    render_pass_info.renderPass = RenderPass;
+    render_pass_info.framebuffer = Framebuffers[imageIndex];
+    render_pass_info.renderArea.offset = {0, 0};
+    render_pass_info.renderArea.extent = ctx.Swapchain.extent;
 
-    VkSwapchainKHR swapChains[] = {ctx.Swapchain};
-    present_info.swapchainCount = 1;
-    present_info.pSwapchains = swapChains;
+    VkClearValue clearColor{{{0.0f, 0.0f, 0.0f, 1.0f}}};
+    render_pass_info.clearValueCount = 1;
+    render_pass_info.pClearValues = &clearColor;
 
-    present_info.pImageIndices = &FrameImageIndex;
-
-    VkResult result = ctx.Disp.queuePresentKHR(PresentQueue, &present_info);
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
+    ctx.Disp.cmdBeginRenderPass(commandBuffer, &render_pass_info,
+                                VK_SUBPASS_CONTENTS_INLINE);
     {
-        ctx.SwapchainOk = false;
-        return;
-    }
-    else if (result != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to present swapchain image!");
+        ctx.Disp.cmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                 GraphicsPipeline);
+
+        VkViewport viewport = {};
+        viewport.x = 0.0f;
+        viewport.y = 0.0f;
+        viewport.width = static_cast<float>(ctx.Swapchain.extent.width);
+        viewport.height = static_cast<float>(ctx.Swapchain.extent.height);
+        viewport.minDepth = 0.0f;
+        viewport.maxDepth = 1.0f;
+        ctx.Disp.cmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+        VkRect2D scissor = {};
+        scissor.offset = {0, 0};
+        scissor.extent = ctx.Swapchain.extent;
+        ctx.Disp.cmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+        ctx.Disp.cmdDraw(commandBuffer, 3, 1, 0, 0);
+
+        ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
     }
 
-    FrameSemaphoreIndex = (FrameSemaphoreIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+    ctx.Disp.cmdEndRenderPass(commandBuffer);
+
+    if (ctx.Disp.endCommandBuffer(commandBuffer) != VK_SUCCESS)
+        throw std::runtime_error("Failed to record command buffer!");
 }
 
-void Renderer::RecreateSwapchain(VulkanContext &ctx)
+void HelloTriangleRenderer::CreatePermanentResources(VulkanContext &ctx)
 {
-    ctx.Disp.deviceWaitIdle();
+    CreateRenderPasses(ctx);
+    CreateGraphicsPipelines(ctx);
+}
 
-    ctx.Disp.destroyCommandPool(CommandPool, nullptr);
-
-    for (auto framebuffer : Framebuffers)
-    {
-        ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
-    }
-
-    ctx.Swapchain.destroy_image_views(SwapchainImageViews);
-
-    ctx.CreateSwapchain(ctx.Width, ctx.Height);
-
+void HelloTriangleRenderer::CreateSwapchainResources(VulkanContext &ctx)
+{
     CreateFramebuffers(ctx);
-    CreateCommandPool(ctx);
+    CreateCommandPools(ctx);
     CreateCommandBuffers(ctx);
-
-    ctx.SwapchainOk = true;
-
-    // DrawFrame(ctx);
-    // PresentFrame(ctx);
 }
 
-void Renderer::VulkanCleanup(VulkanContext &ctx)
+void HelloTriangleRenderer::DestroyPermanentResources(VulkanContext &ctx)
 {
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        ctx.Disp.destroySemaphore(RenderCompletedSemaphores[i], nullptr);
-        ctx.Disp.destroySemaphore(ImageAcquiredSemaphores[i], nullptr);
-        ctx.Disp.destroyFence(InFlightFences[i], nullptr);
-    }
-
-    ctx.Disp.destroyCommandPool(CommandPool, nullptr);
-
-    for (auto framebuffer : Framebuffers)
-    {
-        ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
-    }
-
     ctx.Disp.destroyPipeline(GraphicsPipeline, nullptr);
     ctx.Disp.destroyPipelineLayout(PipelineLayout, nullptr);
     ctx.Disp.destroyRenderPass(RenderPass, nullptr);
+}
 
-    ctx.Swapchain.destroy_image_views(SwapchainImageViews);
+void HelloTriangleRenderer::DestroySwapchainResources(VulkanContext &ctx)
+{
+    ctx.Disp.destroyCommandPool(CommandPool, nullptr);
+
+    for (auto framebuffer : Framebuffers)
+    {
+        ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
+    }
 }

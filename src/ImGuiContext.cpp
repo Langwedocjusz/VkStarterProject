@@ -4,7 +4,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
-void ImGuiContextManager::OnInit(VulkanContext &ctx, const Renderer &renderer)
+void ImGuiContextManager::OnInit(VulkanContext &ctx, const RendererBase &renderer)
 {
     CreateDescriptorPool(ctx);
     InitImGui();
@@ -81,8 +81,11 @@ void ImGuiContextManager::CreateDescriptorPool(VulkanContext &ctx)
         abort();
 }
 
-void ImGuiContextManager::InitImGuiVulkanBackend(VulkanContext &ctx, const Renderer &renderer)
+void ImGuiContextManager::InitImGuiVulkanBackend(VulkanContext &ctx,
+                                                 const RendererBase &renderer)
 {
+    auto rdata = renderer.getImGuiData();
+
     ImGui_ImplGlfw_InitForVulkan(ctx.Window.get(), true);
 
     ImGui_ImplVulkan_InitInfo init_info = {};
@@ -92,14 +95,14 @@ void ImGuiContextManager::InitImGuiVulkanBackend(VulkanContext &ctx, const Rende
     init_info.Device = ctx.Device;
 
     // init_info.QueueFamily = g_QueueFamily;
-    init_info.Queue = renderer.getGraphicsQueue();
+    init_info.Queue = rdata.Queue;
     // init_info.PipelineCache = g_PipelineCache;
     init_info.DescriptorPool = m_ImguiPool;
-    init_info.RenderPass = renderer.getRenderPass();
+    init_info.RenderPass = rdata.RenderPass;
     init_info.Subpass = 0;
-    init_info.MinImageCount = static_cast<uint32_t>(renderer.getFramesInFlight());
-    init_info.ImageCount = static_cast<uint32_t>(renderer.getFramesInFlight());
-    init_info.MSAASamples = renderer.getMSAACount();
+    init_info.MinImageCount = rdata.FramesInFlight;
+    init_info.ImageCount = rdata.FramesInFlight;
+    init_info.MSAASamples = rdata.MSAA;
     // init_info.Allocator = g_Allocator;
     init_info.CheckVkResultFn = check_vk_result;
 

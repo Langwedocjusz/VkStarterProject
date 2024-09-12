@@ -1,8 +1,9 @@
 #pragma once
 
 #include "ImGuiContext.h"
-#include "Renderer.h"
 #include "VulkanContext.h"
+
+#include "HelloTriangle.h"
 
 class Application {
   public:
@@ -15,7 +16,7 @@ class Application {
 
   private:
     VulkanContext m_Ctx;
-    Renderer m_Renderer;
+    HelloTriangleRenderer m_Renderer;
 
     ImGuiContextManager m_ImGuiCtx;
 };

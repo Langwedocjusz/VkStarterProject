@@ -3,13 +3,21 @@
 #include "SystemWindow.h"
 #include "VkBootstrap.h"
 
-struct VulkanContext {
-    VulkanContext(uint32_t width, uint32_t height, std::string title,
+/**
+    Class encapsulating elements of Vulkan application
+    that will typically be present during the whole lifetime of
+    the application i.e. vulkan instance, physical and logical device
+    and System Window with the associated swapchain and surface.
+*/
+class VulkanContext {
+  public:
+    VulkanContext(uint32_t initial_width, uint32_t initial_height, std::string title,
                   void *usr_ptr = nullptr);
     ~VulkanContext();
 
     void CreateSwapchain(uint32_t width, uint32_t height);
 
+  public:
     SystemWindow Window;
 
     vkb::Instance Instance;

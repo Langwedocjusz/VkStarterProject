@@ -1,9 +1,5 @@
 #include "Application.h"
 
-#include "Renderer.h"
-
-#include "imgui.h"
-
 Application::Application() : m_Ctx(800, 600, "Vulkanik", static_cast<void *>(this))
 {
     m_Renderer.OnInit(m_Ctx);

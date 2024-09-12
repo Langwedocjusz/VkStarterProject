@@ -31,8 +31,10 @@ target_sources(${PROJECT_NAME}
         src/ImGuiContext.h
         src/ImGuiContext.cpp
         src/main.cpp
-        src/Renderers/Renderer.h
-        src/Renderers/Renderer.cpp
+        src/Renderers/RendererBase.h
+        src/Renderers/RendererBase.cpp
+        src/Renderers/HelloTriangle.h
+        src/Renderers/HelloTriangle.cpp
         src/SystemWindow.h
         src/SystemWindow.cpp
         src/Utils.h
