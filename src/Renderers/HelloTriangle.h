@@ -31,6 +31,8 @@ class HelloTriangleRenderer : public RendererBase {
     void RecordCommandBuffer(VulkanContext &ctx, VkCommandBuffer commandBuffer,
                              uint32_t imageIndex);
 
+    void CreateVertexBuffers(VulkanContext &ctx);
+
   private:
     VkRenderPass RenderPass;
 
@@ -39,6 +41,10 @@ class HelloTriangleRenderer : public RendererBase {
 
     VkCommandPool CommandPool;
     std::vector<VkCommandBuffer> CommandBuffers;
+
+    VkBuffer VertexBuffer;
+    VkDeviceMemory VertexBufferMemory;
+    size_t VertexCount;
 
     bool show_demo_window = true;
 };

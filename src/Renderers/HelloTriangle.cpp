@@ -5,10 +5,80 @@
 #include "ImGuiContext.h"
 #include "imgui.h"
 
+#include <array>
+#include <glm/glm.hpp>
+
+struct Vertex {
+    glm::vec2 Pos;
+    glm::vec3 Color;
+
+    static VkVertexInputBindingDescription getBindingDescription()
+    {
+        VkVertexInputBindingDescription bindingDescription{};
+        bindingDescription.binding = 0;
+        bindingDescription.stride = sizeof(Vertex);
+        bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        return bindingDescription;
+    }
+
+    static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions()
+    {
+        std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+
+        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
+        attributeDescriptions[0].offset = offsetof(Vertex, Pos);
+
+        attributeDescriptions[1].binding = 0;
+        attributeDescriptions[1].location = 1;
+        attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        attributeDescriptions[1].offset = offsetof(Vertex, Color);
+
+        return attributeDescriptions;
+    }
+};
+
 void HelloTriangleRenderer::OnImGui()
 {
     if (show_demo_window)
         ImGui::ShowDemoWindow(&show_demo_window);
+}
+
+void HelloTriangleRenderer::CreatePermanentResources(VulkanContext &ctx)
+{
+    CreateRenderPasses(ctx);
+    CreateGraphicsPipelines(ctx);
+
+    CreateVertexBuffers(ctx);
+}
+
+void HelloTriangleRenderer::CreateSwapchainResources(VulkanContext &ctx)
+{
+    CreateFramebuffers(ctx);
+    CreateCommandPools(ctx);
+    CreateCommandBuffers(ctx);
+}
+
+void HelloTriangleRenderer::DestroyPermanentResources(VulkanContext &ctx)
+{
+    ctx.Disp.destroyBuffer(VertexBuffer, nullptr);
+    ctx.Disp.freeMemory(VertexBufferMemory, nullptr);
+
+    ctx.Disp.destroyPipeline(GraphicsPipeline, nullptr);
+    ctx.Disp.destroyPipelineLayout(PipelineLayout, nullptr);
+    ctx.Disp.destroyRenderPass(RenderPass, nullptr);
+}
+
+void HelloTriangleRenderer::DestroySwapchainResources(VulkanContext &ctx)
+{
+    ctx.Disp.destroyCommandPool(CommandPool, nullptr);
+
+    for (auto framebuffer : Framebuffers)
+    {
+        ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
+    }
 }
 
 void HelloTriangleRenderer::CreateRenderPasses(VulkanContext &ctx)
@@ -80,10 +150,17 @@ void HelloTriangleRenderer::CreateGraphicsPipelines(VulkanContext &ctx)
 
     VkPipelineShaderStageCreateInfo shader_stages[] = {vert_stage_info, frag_stage_info};
 
+    // Vertex Input setup:
+    auto bindingDescription = Vertex::getBindingDescription();
+    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+
     VkPipelineVertexInputStateCreateInfo vertex_input_info = {};
     vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertex_input_info.vertexBindingDescriptionCount = 0;
-    vertex_input_info.vertexAttributeDescriptionCount = 0;
+    vertex_input_info.vertexBindingDescriptionCount = 1;
+    vertex_input_info.vertexAttributeDescriptionCount =
+        static_cast<uint32_t>(attributeDescriptions.size());
+    vertex_input_info.pVertexBindingDescriptions = &bindingDescription;
+    vertex_input_info.pVertexAttributeDescriptions = attributeDescriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly = {};
     input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
@@ -303,7 +380,11 @@ void HelloTriangleRenderer::RecordCommandBuffer(VulkanContext &ctx,
         scissor.extent = ctx.Swapchain.extent;
         ctx.Disp.cmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-        ctx.Disp.cmdDraw(commandBuffer, 3, 1, 0, 0);
+        VkBuffer vertexBuffers[] = {VertexBuffer};
+        VkDeviceSize offsets[] = {0};
+        ctx.Disp.cmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+        ctx.Disp.cmdDraw(commandBuffer, static_cast<uint32_t>(VertexCount), 1, 0, 0);
 
         ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
     }
@@ -314,32 +395,71 @@ void HelloTriangleRenderer::RecordCommandBuffer(VulkanContext &ctx,
         throw std::runtime_error("Failed to record command buffer!");
 }
 
-void HelloTriangleRenderer::CreatePermanentResources(VulkanContext &ctx)
+static uint32_t FindMemoryType(VulkanContext &ctx, uint32_t typeFilter,
+                               VkMemoryPropertyFlags properties)
 {
-    CreateRenderPasses(ctx);
-    CreateGraphicsPipelines(ctx);
-}
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(ctx.PhysicalDevice, &memProperties);
 
-void HelloTriangleRenderer::CreateSwapchainResources(VulkanContext &ctx)
-{
-    CreateFramebuffers(ctx);
-    CreateCommandPools(ctx);
-    CreateCommandBuffers(ctx);
-}
-
-void HelloTriangleRenderer::DestroyPermanentResources(VulkanContext &ctx)
-{
-    ctx.Disp.destroyPipeline(GraphicsPipeline, nullptr);
-    ctx.Disp.destroyPipelineLayout(PipelineLayout, nullptr);
-    ctx.Disp.destroyRenderPass(RenderPass, nullptr);
-}
-
-void HelloTriangleRenderer::DestroySwapchainResources(VulkanContext &ctx)
-{
-    ctx.Disp.destroyCommandPool(CommandPool, nullptr);
-
-    for (auto framebuffer : Framebuffers)
+    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
     {
-        ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
+        const auto current_flags = memProperties.memoryTypes[i].propertyFlags;
+
+        bool memory_suitable = (typeFilter & (1 << i));
+        memory_suitable &= ((current_flags & properties) == properties);
+
+        if (memory_suitable)
+        {
+            return i;
+        }
     }
+
+    throw std::runtime_error("Failed to find suitable memory type!");
+}
+
+void HelloTriangleRenderer::CreateVertexBuffers(VulkanContext &ctx)
+{
+    // clang-format off
+    const std::vector<Vertex> vertices{
+        {{ 0.0f,-0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{ 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+    };
+    // clang-format on
+
+    VertexCount = vertices.size();
+
+    VkBufferCreateInfo bufferInfo{};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = VertexCount * sizeof(Vertex);
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(ctx.Device, &bufferInfo, nullptr, &VertexBuffer) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create vertex buffer!");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(ctx.Device, VertexBuffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memRequirements.size;
+    allocInfo.memoryTypeIndex = FindMemoryType(ctx, memRequirements.memoryTypeBits,
+                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    if (vkAllocateMemory(ctx.Device, &allocInfo, nullptr, &VertexBufferMemory) !=
+        VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to allocate vertex buffer memory!");
+    }
+
+    vkBindBufferMemory(ctx.Device, VertexBuffer, VertexBufferMemory, 0);
+
+    void* data;
+    vkMapMemory(ctx.Device, VertexBufferMemory, 0, bufferInfo.size, 0, &data);
+    std::memcpy(data, vertices.data(), static_cast<size_t>(bufferInfo.size));
+    vkUnmapMemory(ctx.Device, VertexBufferMemory);
 }
