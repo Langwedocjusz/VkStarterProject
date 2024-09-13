@@ -46,12 +46,10 @@ void HelloTriangleRenderer::OnImGui()
         ImGui::ShowDemoWindow(&show_demo_window);
 }
 
-void HelloTriangleRenderer::CreatePermanentResources(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateResources(VulkanContext &ctx)
 {
     CreateRenderPasses(ctx);
     CreateGraphicsPipelines(ctx);
-
-    CreateVertexBuffers(ctx);
 }
 
 void HelloTriangleRenderer::CreateSwapchainResources(VulkanContext &ctx)
@@ -61,7 +59,12 @@ void HelloTriangleRenderer::CreateSwapchainResources(VulkanContext &ctx)
     CreateCommandBuffers(ctx);
 }
 
-void HelloTriangleRenderer::DestroyPermanentResources(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateDependentResources(VulkanContext &ctx)
+{
+    CreateVertexBuffers(ctx);
+}
+
+void HelloTriangleRenderer::DestroyResources(VulkanContext &ctx)
 {
     ctx.Disp.destroyBuffer(VertexBuffer, nullptr);
     ctx.Disp.freeMemory(VertexBufferMemory, nullptr);
@@ -395,28 +398,6 @@ void HelloTriangleRenderer::RecordCommandBuffer(VulkanContext &ctx,
         throw std::runtime_error("Failed to record command buffer!");
 }
 
-static uint32_t FindMemoryType(VulkanContext &ctx, uint32_t typeFilter,
-                               VkMemoryPropertyFlags properties)
-{
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(ctx.PhysicalDevice, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-    {
-        const auto current_flags = memProperties.memoryTypes[i].propertyFlags;
-
-        bool memory_suitable = (typeFilter & (1 << i));
-        memory_suitable &= ((current_flags & properties) == properties);
-
-        if (memory_suitable)
-        {
-            return i;
-        }
-    }
-
-    throw std::runtime_error("Failed to find suitable memory type!");
-}
-
 void HelloTriangleRenderer::CreateVertexBuffers(VulkanContext &ctx)
 {
     // clang-format off
@@ -428,38 +409,41 @@ void HelloTriangleRenderer::CreateVertexBuffers(VulkanContext &ctx)
     // clang-format on
 
     VertexCount = vertices.size();
+    VkDeviceSize bufferSize = VertexCount * sizeof(Vertex);
 
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = VertexCount * sizeof(Vertex);
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
 
-    if (vkCreateBuffer(ctx.Device, &bufferInfo, nullptr, &VertexBuffer) != VK_SUCCESS)
     {
-        throw std::runtime_error("failed to create vertex buffer!");
+        VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        VkMemoryPropertyFlags properties =
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+        utils::CreateBuffer(ctx, bufferSize, usage, properties, stagingBuffer,
+                            stagingBufferMemory);
     }
 
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(ctx.Device, VertexBuffer, &memRequirements);
+    void *data;
+    vkMapMemory(ctx.Device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    std::memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
+    vkUnmapMemory(ctx.Device, stagingBufferMemory);
 
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex = FindMemoryType(ctx, memRequirements.memoryTypeBits,
-                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                   VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-    if (vkAllocateMemory(ctx.Device, &allocInfo, nullptr, &VertexBufferMemory) !=
-        VK_SUCCESS)
     {
-        throw std::runtime_error("failed to allocate vertex buffer memory!");
+        VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        utils::CreateBuffer(ctx, bufferSize, usage, properties, VertexBuffer, VertexBufferMemory);
     }
 
-    vkBindBufferMemory(ctx.Device, VertexBuffer, VertexBufferMemory, 0);
+    utils::CopyBufferInfo cp_info{
+        .Queue = GraphicsQueue,
+        .Pool = CommandPool,
+        .Src = stagingBuffer,
+        .Dst = VertexBuffer,
+        .Size = bufferSize
+    };
 
-    void* data;
-    vkMapMemory(ctx.Device, VertexBufferMemory, 0, bufferInfo.size, 0, &data);
-    std::memcpy(data, vertices.data(), static_cast<size_t>(bufferInfo.size));
-    vkUnmapMemory(ctx.Device, VertexBufferMemory);
+    utils::CopyBuffer(ctx, cp_info);
+
+    vkDestroyBuffer(ctx.Device, stagingBuffer, nullptr);
+    vkFreeMemory(ctx.Device, stagingBufferMemory, nullptr);
 }

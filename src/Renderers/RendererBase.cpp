@@ -9,9 +9,10 @@ RendererBase::~RendererBase()
 void RendererBase::OnInit(VulkanContext &ctx)
 {
     CreateQueues(ctx);
-    CreatePermanentResources(ctx);
+    CreateResources(ctx);
     CreateSwapchainViews(ctx);
     CreateSwapchainResources(ctx);
+    CreateDependentResources(ctx);
     CreateSyncObjects(ctx);
 }
 
@@ -184,5 +185,5 @@ void RendererBase::VulkanCleanup(VulkanContext &ctx)
 
     DestroySwapchainResources(ctx);
     DestroySwapchainViews(ctx);
-    DestroyPermanentResources(ctx);
+    DestroyResources(ctx);
 }

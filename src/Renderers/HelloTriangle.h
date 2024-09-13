@@ -12,10 +12,11 @@ class HelloTriangleRenderer : public RendererBase {
         return RenderPass;
     }
 
-    void CreatePermanentResources(VulkanContext &ctx) override;
+    void CreateResources(VulkanContext &ctx) override;
     void CreateSwapchainResources(VulkanContext &ctx) override;
+    void CreateDependentResources(VulkanContext &ctx) override;
 
-    void DestroyPermanentResources(VulkanContext &ctx) override;
+    void DestroyResources(VulkanContext &ctx) override;
     void DestroySwapchainResources(VulkanContext &ctx) override;
 
     void SubmitCommandBuffers(VulkanContext &ctx) override;

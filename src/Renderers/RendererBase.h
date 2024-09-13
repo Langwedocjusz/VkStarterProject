@@ -22,7 +22,8 @@ class RendererBase {
     virtual ~RendererBase();
 
     void OnInit(VulkanContext &ctx);
-    void OnUpdate();
+
+    virtual void OnUpdate();
     virtual void OnImGui();
     void OnRender(VulkanContext &ctx);
 
@@ -35,10 +36,11 @@ class RendererBase {
   protected:
     virtual VkRenderPass getImGuiRenderPass() const = 0;
 
-    virtual void CreatePermanentResources(VulkanContext &ctx) = 0;
-    virtual void CreateSwapchainResources(VulkanContext &ctx) = 0;
+    virtual void CreateResources(VulkanContext &ctx) = 0;
+    virtual void CreateDependentResources(VulkanContext &ctx) = 0;
+    virtual void DestroyResources(VulkanContext &ctx) = 0;
 
-    virtual void DestroyPermanentResources(VulkanContext &ctx) = 0;
+    virtual void CreateSwapchainResources(VulkanContext &ctx) = 0;
     virtual void DestroySwapchainResources(VulkanContext &ctx) = 0;
 
     virtual void SubmitCommandBuffers(VulkanContext &ctx) = 0;
