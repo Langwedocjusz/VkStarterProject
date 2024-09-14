@@ -6,7 +6,8 @@
 #include "imgui.h"
 
 #include <array>
-#include <glm/glm.hpp>
+
+#include <glm/gtc/matrix_transform.hpp>
 
 struct Vertex {
     glm::vec2 Pos;
@@ -42,13 +43,18 @@ struct Vertex {
 
 void HelloTriangleRenderer::OnImGui()
 {
-    if (show_demo_window)
-        ImGui::ShowDemoWindow(&show_demo_window);
+    //if (show_demo_window)
+    //    ImGui::ShowDemoWindow(&show_demo_window);
+
+    ImGui::Begin("Hello Triangle");
+    ImGui::SliderFloat("Rotation", &UBOData.Phi, 0.0f, 6.28f);
+    ImGui::End();
 }
 
 void HelloTriangleRenderer::CreateResources(VulkanContext &ctx)
 {
     CreateRenderPasses(ctx);
+    CreateDescriptorSetLayout(ctx);
     CreateGraphicsPipelines(ctx);
 }
 
@@ -62,6 +68,9 @@ void HelloTriangleRenderer::CreateSwapchainResources(VulkanContext &ctx)
 void HelloTriangleRenderer::CreateDependentResources(VulkanContext &ctx)
 {
     CreateVertexBuffers(ctx);
+    CreateUniformBuffers(ctx);
+    CreateDescriptorPool(ctx);
+    CreateDescriptorSets(ctx);
 }
 
 void HelloTriangleRenderer::DestroyResources(VulkanContext &ctx)
@@ -72,6 +81,15 @@ void HelloTriangleRenderer::DestroyResources(VulkanContext &ctx)
     ctx.Disp.destroyPipeline(GraphicsPipeline, nullptr);
     ctx.Disp.destroyPipelineLayout(PipelineLayout, nullptr);
     ctx.Disp.destroyRenderPass(RenderPass, nullptr);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        ctx.Disp.destroyBuffer(UniformBuffers[i], nullptr);
+        ctx.Disp.freeMemory(UniformBuffersMemory[i], nullptr);
+    }
+
+    ctx.Disp.destroyDescriptorPool(DescriptorPool, nullptr);
+    ctx.Disp.destroyDescriptorSetLayout(DescriptorSetLayout, nullptr);
 }
 
 void HelloTriangleRenderer::DestroySwapchainResources(VulkanContext &ctx)
@@ -82,6 +100,24 @@ void HelloTriangleRenderer::DestroySwapchainResources(VulkanContext &ctx)
     {
         ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
     }
+}
+
+void HelloTriangleRenderer::CreateDescriptorSetLayout(VulkanContext& ctx)
+{
+    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 0;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = 1;
+    layoutInfo.pBindings = &uboLayoutBinding;
+
+    if (vkCreateDescriptorSetLayout(ctx.Device, &layoutInfo, nullptr, &DescriptorSetLayout) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create descriptor set layout!");
 }
 
 void HelloTriangleRenderer::CreateRenderPasses(VulkanContext &ctx)
@@ -223,7 +259,8 @@ void HelloTriangleRenderer::CreateGraphicsPipelines(VulkanContext &ctx)
 
     VkPipelineLayoutCreateInfo pipeline_layout_info = {};
     pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeline_layout_info.setLayoutCount = 0;
+    pipeline_layout_info.setLayoutCount = 1;
+    pipeline_layout_info.pSetLayouts = &DescriptorSetLayout;
     pipeline_layout_info.pushConstantRangeCount = 0;
 
     if (ctx.Disp.createPipelineLayout(&pipeline_layout_info, nullptr, &PipelineLayout) !=
@@ -346,6 +383,8 @@ void HelloTriangleRenderer::RecordCommandBuffer(VulkanContext &ctx,
                                                 VkCommandBuffer commandBuffer,
                                                 uint32_t imageIndex)
 {
+    UpdateUniformBuffer(ctx);
+
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
@@ -387,6 +426,8 @@ void HelloTriangleRenderer::RecordCommandBuffer(VulkanContext &ctx,
         VkDeviceSize offsets[] = {0};
         ctx.Disp.cmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
+        vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, PipelineLayout, 0, 1, &DescriptorSets[FrameSemaphoreIndex], 0, nullptr);
+
         ctx.Disp.cmdDraw(commandBuffer, static_cast<uint32_t>(VertexCount), 1, 0, 0);
 
         ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
@@ -401,10 +442,12 @@ void HelloTriangleRenderer::RecordCommandBuffer(VulkanContext &ctx,
 void HelloTriangleRenderer::CreateVertexBuffers(VulkanContext &ctx)
 {
     // clang-format off
+    const float r3 = std::sqrt(3.0f);
+
     const std::vector<Vertex> vertices{
-        {{ 0.0f,-0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{ 0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+        {{ 0.0f,-r3/3.0f}, {1.0f, 0.0f, 0.0f}},
+        {{ 0.5f, r3/6.0f}, {0.0f, 1.0f, 0.0f}},
+        {{-0.5f, r3/6.0f}, {0.0f, 0.0f, 1.0f}}
     };
     // clang-format on
 
@@ -446,4 +489,92 @@ void HelloTriangleRenderer::CreateVertexBuffers(VulkanContext &ctx)
 
     vkDestroyBuffer(ctx.Device, stagingBuffer, nullptr);
     vkFreeMemory(ctx.Device, stagingBufferMemory, nullptr);
+}
+
+void HelloTriangleRenderer::CreateUniformBuffers(VulkanContext &ctx)
+{
+    VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+    UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    UniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+    UniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
+
+    for(size_t i=0; i<MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        auto usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+        auto properties = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+        utils::CreateBuffer(ctx, bufferSize, usage, properties, UniformBuffers[i], UniformBuffersMemory[i]);
+
+        vkMapMemory(ctx.Device, UniformBuffersMemory[i], 0, bufferSize, 0, &UniformBuffersMapped[i]);
+    }
+}
+
+void HelloTriangleRenderer::UpdateUniformBuffer(VulkanContext &ctx)
+{
+    auto width = static_cast<float>(ctx.Swapchain.extent.width);
+    auto height = static_cast<float>(ctx.Swapchain.extent.height);
+
+    float sx = 1.0f, sy = 1.0f;
+
+    if (height < width)
+        sx = width/height;
+    else
+        sy = height/width;
+
+    auto proj = glm::ortho(-sx, sx, -sy, sy, -1.0f, 1.0f);
+
+    UBOData.MVP = proj;
+
+    std::memcpy(UniformBuffersMapped[FrameSemaphoreIndex], &UBOData, sizeof(UBOData));
+}
+
+void HelloTriangleRenderer::CreateDescriptorPool(VulkanContext &ctx)
+{
+    VkDescriptorPoolSize poolSize{};
+    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = 1;
+    poolInfo.pPoolSizes = &poolSize;
+    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+
+    if (vkCreateDescriptorPool(ctx.Device, &poolInfo, nullptr, &DescriptorPool) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create descriptor pool!");
+}
+
+void HelloTriangleRenderer::CreateDescriptorSets(VulkanContext &ctx)
+{
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, DescriptorSetLayout);
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = DescriptorPool;
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
+    allocInfo.pSetLayouts = layouts.data();
+
+    DescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+
+    if (vkAllocateDescriptorSets(ctx.Device, &allocInfo, DescriptorSets.data()) != VK_SUCCESS)
+        throw std::runtime_error("Failed to allocate descriptor sets!");
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = UniformBuffers[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = sizeof(UniformBufferObject);
+
+        VkWriteDescriptorSet descriptorWrite{};
+        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrite.dstSet = DescriptorSets[i];
+        descriptorWrite.dstBinding = 0;
+        descriptorWrite.dstArrayElement = 0;
+        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrite.descriptorCount = 1;
+        descriptorWrite.pBufferInfo = &bufferInfo;
+
+        vkUpdateDescriptorSets(ctx.Device, 1, &descriptorWrite, 0, nullptr);
+    }
 }

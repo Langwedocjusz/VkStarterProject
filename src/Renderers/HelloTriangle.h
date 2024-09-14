@@ -2,6 +2,8 @@
 
 #include "RendererBase.h"
 
+#include <glm/glm.hpp>
+
 class HelloTriangleRenderer : public RendererBase {
   public:
     void OnImGui() override;
@@ -22,6 +24,7 @@ class HelloTriangleRenderer : public RendererBase {
     void SubmitCommandBuffers(VulkanContext &ctx) override;
 
   private:
+    void CreateDescriptorSetLayout(VulkanContext& ctx);
     void CreateRenderPasses(VulkanContext &ctx);
     void CreateGraphicsPipelines(VulkanContext &ctx);
 
@@ -34,8 +37,18 @@ class HelloTriangleRenderer : public RendererBase {
 
     void CreateVertexBuffers(VulkanContext &ctx);
 
+    void CreateUniformBuffers(VulkanContext &ctx);
+    void UpdateUniformBuffer(VulkanContext &ctx);
+
+    void CreateDescriptorPool(VulkanContext &ctx);
+    void CreateDescriptorSets(VulkanContext &ctx);
+
   private:
     VkRenderPass RenderPass;
+
+    VkDescriptorSetLayout DescriptorSetLayout;
+    VkDescriptorPool DescriptorPool;
+    std::vector<VkDescriptorSet> DescriptorSets;
 
     VkPipelineLayout PipelineLayout;
     VkPipeline GraphicsPipeline;
@@ -47,5 +60,15 @@ class HelloTriangleRenderer : public RendererBase {
     VkDeviceMemory VertexBufferMemory;
     size_t VertexCount;
 
-    bool show_demo_window = true;
+    std::vector<VkBuffer> UniformBuffers;
+    std::vector<VkDeviceMemory> UniformBuffersMemory;
+    std::vector<void*> UniformBuffersMapped;
+
+    struct UniformBufferObject{
+        glm::mat4 MVP = glm::mat4(1.0f);
+        float Phi = 0.0f;
+    };
+    UniformBufferObject UBOData;
+
+    //bool show_demo_window = true;
 };
