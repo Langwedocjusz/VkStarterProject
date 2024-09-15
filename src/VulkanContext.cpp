@@ -29,13 +29,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
     //.add_required_extension("VK_KHR_timeline_semaphore");
     //.add_desired_extension("VK_KHR_imageless_framebuffer");
 
-    // To set required device features:
-    // VkPhysicalDeviceFeatures required_features{};
-    // required_features.multiViewport = true;
-    // And then:
-    // .set_required_features(required_features);
-
-    VkPhysicalDeviceFeatures features;
+    VkPhysicalDeviceFeatures features{};
     features.samplerAnisotropy = true;
 
     auto phys_device_ret = vkb::PhysicalDeviceSelector(Instance)
