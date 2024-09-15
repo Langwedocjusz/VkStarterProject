@@ -66,7 +66,8 @@ class TexturedQuadRenderer : public RendererBase {
         glm::vec2 TexCoord;
 
         static VkVertexInputBindingDescription getBindingDescription();
-        static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions();
+        static std::array<VkVertexInputAttributeDescription, 2>
+        getAttributeDescriptions();
     };
 
     VkBuffer VertexBuffer;
@@ -91,6 +92,4 @@ class TexturedQuadRenderer : public RendererBase {
     VkDeviceMemory TextureImageMemory;
     VkImageView TextureImageView;
     VkSampler TextureSampler;
-
-    // bool show_demo_window = true;
 };

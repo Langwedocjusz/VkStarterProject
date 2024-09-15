@@ -61,7 +61,8 @@ class HelloTriangleRenderer : public RendererBase {
         glm::vec3 Color;
 
         static VkVertexInputBindingDescription getBindingDescription();
-        static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions();
+        static std::array<VkVertexInputAttributeDescription, 2>
+        getAttributeDescriptions();
     };
 
     VkBuffer VertexBuffer;
@@ -77,6 +78,4 @@ class HelloTriangleRenderer : public RendererBase {
         float Phi = 0.0f;
     };
     UniformBufferObject UBOData;
-
-    // bool show_demo_window = true;
 };

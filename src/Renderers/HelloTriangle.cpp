@@ -9,7 +9,6 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-
 VkVertexInputBindingDescription HelloTriangleRenderer::Vertex::getBindingDescription()
 {
     VkVertexInputBindingDescription bindingDescription{};
@@ -19,7 +18,8 @@ VkVertexInputBindingDescription HelloTriangleRenderer::Vertex::getBindingDescrip
     return bindingDescription;
 }
 
-std::array<VkVertexInputAttributeDescription, 2> HelloTriangleRenderer::Vertex::getAttributeDescriptions()
+std::array<VkVertexInputAttributeDescription, 2> HelloTriangleRenderer::Vertex::
+    getAttributeDescriptions()
 {
     std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
     attributeDescriptions[0].binding = 0;
@@ -37,9 +37,6 @@ std::array<VkVertexInputAttributeDescription, 2> HelloTriangleRenderer::Vertex::
 
 void HelloTriangleRenderer::OnImGui()
 {
-    // if (show_demo_window)
-    //     ImGui::ShowDemoWindow(&show_demo_window);
-
     ImGui::Begin("Hello Triangle");
     ImGui::SliderFloat("Rotation", &UBOData.Phi, 0.0f, 6.28f);
     ImGui::End();

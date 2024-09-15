@@ -21,7 +21,8 @@ VkVertexInputBindingDescription TexturedQuadRenderer::Vertex::getBindingDescript
     return bindingDescription;
 }
 
-std::array<VkVertexInputAttributeDescription, 2> TexturedQuadRenderer::Vertex::getAttributeDescriptions()
+std::array<VkVertexInputAttributeDescription, 2> TexturedQuadRenderer::Vertex::
+    getAttributeDescriptions()
 {
     std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
     attributeDescriptions[0].binding = 0;
@@ -37,8 +38,7 @@ std::array<VkVertexInputAttributeDescription, 2> TexturedQuadRenderer::Vertex::g
 
 void TexturedQuadRenderer::OnImGui()
 {
-    // if (show_demo_window)
-    //     ImGui::ShowDemoWindow(&show_demo_window);
+    //ImGui::ShowDemoWindow();
 
     ImGui::Begin("Textured Quad");
     ImGui::SliderFloat("Rotation", &UBOData.Phi, 0.0f, 6.28f);
@@ -124,7 +124,8 @@ void TexturedQuadRenderer::CreateDescriptorSetLayout(VulkanContext &ctx)
     samplerLayoutBinding.pImmutableSamplers = nullptr;
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, samplerLayoutBinding};
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding,
+                                                            samplerLayoutBinding};
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -664,7 +665,8 @@ void TexturedQuadRenderer::CreateDescriptorSets(VulkanContext &ctx)
         descriptorWrites[1].descriptorCount = 1;
         descriptorWrites[1].pImageInfo = &imageInfo;
 
-        vkUpdateDescriptorSets(ctx.Device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+        vkUpdateDescriptorSets(ctx.Device, static_cast<uint32_t>(descriptorWrites.size()),
+                               descriptorWrites.data(), 0, nullptr);
     }
 }
 
