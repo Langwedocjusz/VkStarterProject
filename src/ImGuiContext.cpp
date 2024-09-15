@@ -4,7 +4,7 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
-void ImGuiContextManager::OnInit(VulkanContext &ctx, const RendererBase &renderer)
+void ImGuiContextManager::OnInit(VulkanContext &ctx, const RendererBase *const renderer)
 {
     CreateDescriptorPool(ctx);
     InitImGui();
@@ -82,9 +82,9 @@ void ImGuiContextManager::CreateDescriptorPool(VulkanContext &ctx)
 }
 
 void ImGuiContextManager::InitImGuiVulkanBackend(VulkanContext &ctx,
-                                                 const RendererBase &renderer)
+                                                 const RendererBase *const renderer)
 {
-    auto rdata = renderer.getImGuiData();
+    auto rdata = renderer->getImGuiData();
 
     ImGui_ImplGlfw_InitForVulkan(ctx.Window.get(), true);
 

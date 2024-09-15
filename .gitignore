@@ -4,5 +4,8 @@ build/
 #Compiled shader bytecode:
 assets/spirv
 
+#Textures
+assets/textures
+
 #Imgui conifg:
 imgui.ini

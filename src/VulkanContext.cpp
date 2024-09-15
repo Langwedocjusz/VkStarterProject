@@ -35,8 +35,13 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
     // And then:
     // .set_required_features(required_features);
 
-    auto phys_device_ret =
-        vkb::PhysicalDeviceSelector(Instance).set_surface(Surface).select();
+    VkPhysicalDeviceFeatures features;
+    features.samplerAnisotropy = true;
+
+    auto phys_device_ret = vkb::PhysicalDeviceSelector(Instance)
+                               .set_surface(Surface)
+                               .set_required_features(features)
+                               .select();
 
     if (!phys_device_ret)
         throw std::runtime_error(phys_device_ret.error().message());

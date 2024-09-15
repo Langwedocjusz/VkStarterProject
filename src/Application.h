@@ -3,7 +3,9 @@
 #include "ImGuiContext.h"
 #include "VulkanContext.h"
 
-#include "HelloTriangle.h"
+#include "RendererBase.h"
+
+#include <memory>
 
 class Application {
   public:
@@ -16,7 +18,7 @@ class Application {
 
   private:
     VulkanContext m_Ctx;
-    HelloTriangleRenderer m_Renderer;
+    std::unique_ptr<RendererBase> m_Renderer = nullptr;
 
     ImGuiContextManager m_ImGuiCtx;
 };

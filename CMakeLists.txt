@@ -35,6 +35,8 @@ target_sources(${PROJECT_NAME}
         src/Renderers/RendererBase.cpp
         src/Renderers/HelloTriangle.h
         src/Renderers/HelloTriangle.cpp
+        src/Renderers/TexturedQuad.h
+        src/Renderers/TexturedQuad.cpp
         src/SystemWindow.h
         src/SystemWindow.cpp
         src/Utils.h
@@ -62,6 +64,7 @@ add_subdirectory(vendor/glfw)
 add_subdirectory(vendor/vk-bootstrap)
 add_subdirectory(vendor/imgui)
 add_subdirectory(vendor/glm)
+add_subdirectory(vendor/stb_image)
 
 #Link dependencies:
 target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
@@ -69,6 +72,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
 target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
+target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
 
 #Dependency-specific definitions:
 target_compile_definitions(${PROJECT_NAME} PRIVATE "GLFW_INCLUDE_VULKAN")

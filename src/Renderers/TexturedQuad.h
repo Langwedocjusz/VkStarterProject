@@ -4,7 +4,7 @@
 
 #include <glm/glm.hpp>
 
-class HelloTriangleRenderer : public RendererBase {
+class TexturedQuadRenderer : public RendererBase {
   public:
     void OnImGui() override;
 
@@ -36,12 +36,17 @@ class HelloTriangleRenderer : public RendererBase {
                              uint32_t imageIndex);
 
     void CreateVertexBuffers(VulkanContext &ctx);
+    void CreateIndexBuffers(VulkanContext &ctx);
 
     void CreateUniformBuffers(VulkanContext &ctx);
     void UpdateUniformBuffer(VulkanContext &ctx);
 
     void CreateDescriptorPool(VulkanContext &ctx);
     void CreateDescriptorSets(VulkanContext &ctx);
+
+    void CreateTextureImage(VulkanContext &ctx);
+    void CreateTextureImageView(VulkanContext &ctx);
+    void CreateTextureSampler(VulkanContext &ctx);
 
   private:
     VkRenderPass RenderPass;
@@ -58,7 +63,7 @@ class HelloTriangleRenderer : public RendererBase {
 
     struct Vertex {
         glm::vec2 Pos;
-        glm::vec3 Color;
+        glm::vec2 TexCoord;
 
         static VkVertexInputBindingDescription getBindingDescription();
         static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions();
@@ -67,6 +72,10 @@ class HelloTriangleRenderer : public RendererBase {
     VkBuffer VertexBuffer;
     VkDeviceMemory VertexBufferMemory;
     size_t VertexCount;
+
+    VkBuffer IndexBuffer;
+    VkDeviceMemory IndexBufferMemory;
+    size_t IndexCount;
 
     std::vector<VkBuffer> UniformBuffers;
     std::vector<VkDeviceMemory> UniformBuffersMemory;
@@ -77,6 +86,11 @@ class HelloTriangleRenderer : public RendererBase {
         float Phi = 0.0f;
     };
     UniformBufferObject UBOData;
+
+    VkImage TextureImage;
+    VkDeviceMemory TextureImageMemory;
+    VkImageView TextureImageView;
+    VkSampler TextureSampler;
 
     // bool show_demo_window = true;
 };

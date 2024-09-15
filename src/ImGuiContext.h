@@ -5,7 +5,7 @@
 
 class ImGuiContextManager {
   public:
-    void OnInit(VulkanContext &ctx, const RendererBase &renderer);
+    void OnInit(VulkanContext &ctx, const RendererBase *const renderer);
     void OnDestroy(VulkanContext &ctx);
 
     void BeginGuiFrame();
@@ -18,5 +18,5 @@ class ImGuiContextManager {
 
     void InitImGui();
     void CreateDescriptorPool(VulkanContext &ctx);
-    void InitImGuiVulkanBackend(VulkanContext &ctx, const RendererBase &renderer);
+    void InitImGuiVulkanBackend(VulkanContext &ctx, const RendererBase *const renderer);
 };
