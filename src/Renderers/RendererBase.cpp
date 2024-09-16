@@ -2,18 +2,21 @@
 
 #include <iostream>
 
-RendererBase::~RendererBase()
+RendererBase::RendererBase(VulkanContext& context, std::function<void()> cb)
+    : ctx(context)
+    , callback(cb)
 {
+
 }
 
-void RendererBase::OnInit(VulkanContext &ctx)
+void RendererBase::OnInit()
 {
-    CreateQueues(ctx);
-    CreateResources(ctx);
-    CreateSwapchainViews(ctx);
-    CreateSwapchainResources(ctx);
-    CreateDependentResources(ctx);
-    CreateSyncObjects(ctx);
+    CreateQueues();
+    CreateResources();
+    CreateSwapchainViews();
+    CreateSwapchainResources();
+    CreateDependentResources();
+    CreateSyncObjects();
 }
 
 void RendererBase::OnUpdate()
@@ -24,10 +27,10 @@ void RendererBase::OnImGui()
 {
 }
 
-void RendererBase::OnRender(VulkanContext &ctx)
+void RendererBase::OnRender()
 {
-    DrawFrame(ctx);
-    PresentFrame(ctx);
+    DrawFrame();
+    PresentFrame();
 }
 
 RenderDataForImGui RendererBase::getImGuiData() const
@@ -41,7 +44,7 @@ RenderDataForImGui RendererBase::getImGuiData() const
                               .MSAA = VK_SAMPLE_COUNT_1_BIT};
 }
 
-void RendererBase::CreateQueues(VulkanContext &ctx)
+void RendererBase::CreateQueues()
 {
     auto gq = ctx.Device.get_queue(vkb::QueueType::graphics);
     if (!gq.has_value())
@@ -60,7 +63,7 @@ void RendererBase::CreateQueues(VulkanContext &ctx)
     PresentQueue = pq.value();
 }
 
-void RendererBase::CreateSyncObjects(VulkanContext &ctx)
+void RendererBase::CreateSyncObjects()
 {
     ImageAcquiredSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     RenderCompletedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
@@ -84,18 +87,18 @@ void RendererBase::CreateSyncObjects(VulkanContext &ctx)
     }
 }
 
-void RendererBase::CreateSwapchainViews(VulkanContext &ctx)
+void RendererBase::CreateSwapchainViews()
 {
     SwapchainImages = ctx.Swapchain.get_images().value();
     SwapchainImageViews = ctx.Swapchain.get_image_views().value();
 }
 
-void RendererBase::DestroySwapchainViews(VulkanContext &ctx)
+void RendererBase::DestroySwapchainViews()
 {
     ctx.Swapchain.destroy_image_views(SwapchainImageViews);
 }
 
-void RendererBase::DrawFrame(VulkanContext &ctx)
+void RendererBase::DrawFrame()
 {
     ctx.Disp.waitForFences(1, &InFlightFences[FrameSemaphoreIndex], VK_TRUE, UINT64_MAX);
 
@@ -122,10 +125,10 @@ void RendererBase::DrawFrame(VulkanContext &ctx)
 
     ctx.Disp.resetFences(1, &InFlightFences[FrameSemaphoreIndex]);
 
-    SubmitCommandBuffers(ctx);
+    SubmitCommandBuffers();
 }
 
-void RendererBase::PresentFrame(VulkanContext &ctx)
+void RendererBase::PresentFrame()
 {
     if (!ctx.SwapchainOk)
         return;
@@ -157,24 +160,24 @@ void RendererBase::PresentFrame(VulkanContext &ctx)
     FrameSemaphoreIndex = (FrameSemaphoreIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
-void RendererBase::RecreateSwapchain(VulkanContext &ctx)
+void RendererBase::RecreateSwapchain()
 {
     ctx.Disp.deviceWaitIdle();
 
-    DestroySwapchainResources(ctx);
-    DestroySwapchainViews(ctx);
+    DestroySwapchainResources();
+    DestroySwapchainViews();
 
     ctx.CreateSwapchain(ctx.Width, ctx.Height);
-    CreateSwapchainViews(ctx);
-    CreateSwapchainResources(ctx);
+    CreateSwapchainViews();
+    CreateSwapchainResources();
 
     ctx.SwapchainOk = true;
 
-    // DrawFrame(ctx);
-    // PresentFrame(ctx);
+    // DrawFrame();
+    // PresentFrame();
 }
 
-void RendererBase::VulkanCleanup(VulkanContext &ctx)
+void RendererBase::VulkanCleanup()
 {
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -183,7 +186,7 @@ void RendererBase::VulkanCleanup(VulkanContext &ctx)
         ctx.Disp.destroyFence(InFlightFences[i], nullptr);
     }
 
-    DestroySwapchainResources(ctx);
-    DestroySwapchainViews(ctx);
-    DestroyResources(ctx);
+    DestroySwapchainResources();
+    DestroySwapchainViews();
+    DestroyResources();
 }

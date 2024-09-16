@@ -1,14 +1,17 @@
 #include "Application.h"
 
+#include "MainMenu.h"
 #include "HelloTriangle.h"
 #include "TexturedQuad.h"
 
+#include "imgui.h"
+
+#include <iostream>
+
 Application::Application() : m_Ctx(800, 600, "Vulkanik", static_cast<void *>(this))
 {
-    m_Renderer = std::make_unique<TexturedQuadRenderer>();
-
-    m_Renderer->OnInit(m_Ctx);
-    m_ImGuiCtx.OnInit(m_Ctx, m_Renderer.get());
+    RecreateRenderer(true);
+    m_RecreateRenderer = false;
 }
 
 Application::~Application()
@@ -16,13 +19,20 @@ Application::~Application()
     m_Ctx.Disp.deviceWaitIdle();
 
     m_ImGuiCtx.OnDestroy(m_Ctx);
-    m_Renderer->VulkanCleanup(m_Ctx);
+
+    //Destructors of renderer and ctx clean up the rest
 }
 
 void Application::Run()
 {
     while (!m_Ctx.Window.ShouldClose())
     {
+        if (m_RecreateRenderer)
+        {
+            RecreateRenderer();
+            m_RecreateRenderer = false;
+        }
+
         // Swapchain logic based on:
         // https://gist.github.com/nanokatze/bb03a486571e13a7b6a8709368bd87cf#file-handling-window-resize-md
         m_Renderer->OnUpdate();
@@ -41,7 +51,7 @@ void Application::Run()
         m_Renderer->OnImGui();
         m_ImGuiCtx.FinalizeGuiFrame();
 
-        m_Renderer->OnRender(m_Ctx);
+        m_Renderer->OnRender();
     }
 }
 
@@ -51,5 +61,70 @@ void Application::OnResize(uint32_t width, uint32_t height)
     m_Ctx.Width = width;
     m_Ctx.Height = height;
 
-    m_Renderer->RecreateSwapchain(m_Ctx);
+    m_Renderer->RecreateSwapchain();
+}
+
+void Application::RecreateRenderer(bool first_run)
+{
+    using enum SupportedRenderer;
+
+    if (!first_run)
+    {
+        m_Ctx.Disp.deviceWaitIdle();
+        m_ImGuiCtx.OnDestroy(m_Ctx);
+    }
+
+    auto go_back = [this]()
+    {
+        if (ImGui::ArrowButton("Go back", static_cast<ImGuiDir>(0)))
+        {
+            m_RecreateRenderer = true;
+            m_RendererType = MainMenu;
+        }
+
+        ImGui::SameLine();
+        ImGui::Text("Go back");
+
+        ImGui::Separator();
+    };
+
+    auto menu = [this]()
+    {
+        auto size = ImVec2(ImGui::GetContentRegionAvail().x, 0.0f);
+
+        if (ImGui::Button("Hello Triangle", size))
+        {
+            m_RecreateRenderer = true;
+            m_RendererType = HelloTraingle;
+        }
+        if (ImGui::Button("Textured Quad", size))
+        {
+            m_RecreateRenderer = true;
+            m_RendererType = TexturedQuad;
+        }
+    };
+
+    switch(m_RendererType)
+    {
+        //Note that destructors cleaning up vulkan resources are
+        //called automatically
+        case MainMenu:
+        {
+            m_Renderer = std::make_unique<MainMenuRenderer>(m_Ctx, menu);
+            break;
+        }
+        case HelloTraingle:
+        {
+            m_Renderer = std::make_unique<HelloTriangleRenderer>(m_Ctx, go_back);
+            break;
+        }
+        case TexturedQuad:
+        {
+            m_Renderer = std::make_unique<TexturedQuadRenderer>(m_Ctx, go_back);
+            break;
+        }
+    }
+
+    m_Renderer->OnInit();
+    m_ImGuiCtx.OnInit(m_Ctx, m_Renderer.get());
 }

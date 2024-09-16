@@ -35,40 +35,39 @@ std::array<VkVertexInputAttributeDescription, 2> TexturedQuadRenderer::Vertex::
 
 void TexturedQuadRenderer::OnImGui()
 {
-    // ImGui::ShowDemoWindow();
-
     ImGui::Begin("Textured Quad");
+    callback();
     ImGui::SliderFloat("Rotation", &UBOData.Phi, 0.0f, 6.28f);
     ImGui::End();
 }
 
-void TexturedQuadRenderer::CreateResources(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateResources()
 {
-    CreateRenderPasses(ctx);
-    CreateDescriptorSetLayout(ctx);
-    CreateGraphicsPipelines(ctx);
+    CreateRenderPasses();
+    CreateDescriptorSetLayout();
+    CreateGraphicsPipelines();
 }
 
-void TexturedQuadRenderer::CreateSwapchainResources(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateSwapchainResources()
 {
-    CreateFramebuffers(ctx);
-    CreateCommandPools(ctx);
-    CreateCommandBuffers(ctx);
+    CreateFramebuffers();
+    CreateCommandPools();
+    CreateCommandBuffers();
 }
 
-void TexturedQuadRenderer::CreateDependentResources(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateDependentResources()
 {
-    CreateTextureImage(ctx);
-    CreateTextureImageView(ctx);
-    CreateTextureSampler(ctx);
-    CreateVertexBuffers(ctx);
-    CreateIndexBuffers(ctx);
-    CreateUniformBuffers(ctx);
-    CreateDescriptorPool(ctx);
-    CreateDescriptorSets(ctx);
+    CreateTextureImage();
+    CreateTextureImageView();
+    CreateTextureSampler();
+    CreateVertexBuffers();
+    CreateIndexBuffers();
+    CreateUniformBuffers();
+    CreateDescriptorPool();
+    CreateDescriptorSets();
 }
 
-void TexturedQuadRenderer::DestroyResources(VulkanContext &ctx)
+void TexturedQuadRenderer::DestroyResources()
 {
     vkDestroySampler(ctx.Device, TextureSampler, nullptr);
     vkDestroyImageView(ctx.Device, TextureImageView, nullptr);
@@ -95,7 +94,7 @@ void TexturedQuadRenderer::DestroyResources(VulkanContext &ctx)
     vkDestroyDescriptorSetLayout(ctx.Device, DescriptorSetLayout, nullptr);
 }
 
-void TexturedQuadRenderer::DestroySwapchainResources(VulkanContext &ctx)
+void TexturedQuadRenderer::DestroySwapchainResources()
 {
     vkDestroyCommandPool(ctx.Device, CommandPool, nullptr);
 
@@ -105,7 +104,7 @@ void TexturedQuadRenderer::DestroySwapchainResources(VulkanContext &ctx)
     }
 }
 
-void TexturedQuadRenderer::CreateDescriptorSetLayout(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateDescriptorSetLayout()
 {
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
     uboLayoutBinding.binding = 0;
@@ -134,7 +133,7 @@ void TexturedQuadRenderer::CreateDescriptorSetLayout(VulkanContext &ctx)
         throw std::runtime_error("Failed to create descriptor set layout!");
 }
 
-void TexturedQuadRenderer::CreateRenderPasses(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateRenderPasses()
 {
     VkAttachmentDescription color_attachment = {};
     color_attachment.format = ctx.Swapchain.image_format;
@@ -178,7 +177,7 @@ void TexturedQuadRenderer::CreateRenderPasses(VulkanContext &ctx)
         throw std::runtime_error("Failed to create a render pass!");
 }
 
-void TexturedQuadRenderer::CreateGraphicsPipelines(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateGraphicsPipelines()
 {
     // Graphics pipeline:
     auto vert_code = utils::ReadFileBinary("assets/spirv/TexturedQuadVert.spv");
@@ -314,7 +313,7 @@ void TexturedQuadRenderer::CreateGraphicsPipelines(VulkanContext &ctx)
     vkDestroyShaderModule(ctx.Device, vert_module, nullptr);
 }
 
-void TexturedQuadRenderer::CreateFramebuffers(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateFramebuffers()
 {
     Framebuffers.resize(SwapchainImageViews.size());
 
@@ -337,7 +336,7 @@ void TexturedQuadRenderer::CreateFramebuffers(VulkanContext &ctx)
     }
 }
 
-void TexturedQuadRenderer::CreateCommandPools(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateCommandPools()
 {
     VkCommandPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -349,7 +348,7 @@ void TexturedQuadRenderer::CreateCommandPools(VulkanContext &ctx)
         throw std::runtime_error("Failed to create a command pool!");
 }
 
-void TexturedQuadRenderer::CreateCommandBuffers(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateCommandBuffers()
 {
     CommandBuffers.resize(Framebuffers.size());
 
@@ -364,13 +363,13 @@ void TexturedQuadRenderer::CreateCommandBuffers(VulkanContext &ctx)
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
-void TexturedQuadRenderer::SubmitCommandBuffers(VulkanContext &ctx)
+void TexturedQuadRenderer::SubmitCommandBuffers()
 {
     auto &imageAcquiredSemaphore = ImageAcquiredSemaphores[FrameSemaphoreIndex];
     auto &renderCompleteSemaphore = RenderCompletedSemaphores[FrameSemaphoreIndex];
 
     vkResetCommandBuffer(CommandBuffers[FrameSemaphoreIndex], 0);
-    RecordCommandBuffer(ctx, CommandBuffers[FrameSemaphoreIndex], FrameImageIndex);
+    RecordCommandBuffer(CommandBuffers[FrameSemaphoreIndex], FrameImageIndex);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -395,11 +394,10 @@ void TexturedQuadRenderer::SubmitCommandBuffers(VulkanContext &ctx)
     }
 }
 
-void TexturedQuadRenderer::RecordCommandBuffer(VulkanContext &ctx,
-                                               VkCommandBuffer commandBuffer,
+void TexturedQuadRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
                                                uint32_t imageIndex)
 {
-    UpdateUniformBuffer(ctx);
+    UpdateUniformBuffer();
 
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -458,7 +456,7 @@ void TexturedQuadRenderer::RecordCommandBuffer(VulkanContext &ctx,
         throw std::runtime_error("Failed to record command buffer!");
 }
 
-void TexturedQuadRenderer::CreateVertexBuffers(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateVertexBuffers()
 {
     // clang-format off
     const std::vector<Vertex> vertices = {
@@ -509,7 +507,7 @@ void TexturedQuadRenderer::CreateVertexBuffers(VulkanContext &ctx)
     vkFreeMemory(ctx.Device, stagingBufferMemory, nullptr);
 }
 
-void TexturedQuadRenderer::CreateIndexBuffers(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateIndexBuffers()
 {
     // clang-format off
     const std::vector<uint16_t> indices = {
@@ -557,7 +555,7 @@ void TexturedQuadRenderer::CreateIndexBuffers(VulkanContext &ctx)
     vkFreeMemory(ctx.Device, stagingBufferMemory, nullptr);
 }
 
-void TexturedQuadRenderer::CreateUniformBuffers(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateUniformBuffers()
 {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
@@ -579,7 +577,7 @@ void TexturedQuadRenderer::CreateUniformBuffers(VulkanContext &ctx)
     }
 }
 
-void TexturedQuadRenderer::UpdateUniformBuffer(VulkanContext &ctx)
+void TexturedQuadRenderer::UpdateUniformBuffer()
 {
     auto width = static_cast<float>(ctx.Swapchain.extent.width);
     auto height = static_cast<float>(ctx.Swapchain.extent.height);
@@ -598,7 +596,7 @@ void TexturedQuadRenderer::UpdateUniformBuffer(VulkanContext &ctx)
     std::memcpy(UniformBuffersMapped[FrameSemaphoreIndex], &UBOData, sizeof(UBOData));
 }
 
-void TexturedQuadRenderer::CreateDescriptorPool(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateDescriptorPool()
 {
     std::array<VkDescriptorPoolSize, 2> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -617,7 +615,7 @@ void TexturedQuadRenderer::CreateDescriptorPool(VulkanContext &ctx)
         throw std::runtime_error("Failed to create descriptor pool!");
 }
 
-void TexturedQuadRenderer::CreateDescriptorSets(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateDescriptorSets()
 {
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, DescriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
@@ -667,7 +665,7 @@ void TexturedQuadRenderer::CreateDescriptorSets(VulkanContext &ctx)
     }
 }
 
-void TexturedQuadRenderer::CreateTextureImage(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateTextureImage()
 {
     int texWidth, texHeight, texChannels;
     stbi_uc *pixels = stbi_load("assets/textures/texture.jpg", &texWidth, &texHeight,
@@ -751,12 +749,12 @@ void TexturedQuadRenderer::CreateTextureImage(VulkanContext &ctx)
     vkFreeMemory(ctx.Device, stagingBufferMemory, nullptr);
 }
 
-void TexturedQuadRenderer::CreateTextureImageView(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateTextureImageView()
 {
     TextureImageView = utils::CreateImageView(ctx, TextureImage, VK_FORMAT_R8G8B8A8_SRGB);
 }
 
-void TexturedQuadRenderer::CreateTextureSampler(VulkanContext &ctx)
+void TexturedQuadRenderer::CreateTextureSampler()
 {
     VkSamplerCreateInfo samplerInfo{};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;

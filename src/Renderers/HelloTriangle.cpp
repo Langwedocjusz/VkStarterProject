@@ -33,33 +33,34 @@ std::array<VkVertexInputAttributeDescription, 2> HelloTriangleRenderer::Vertex::
 void HelloTriangleRenderer::OnImGui()
 {
     ImGui::Begin("Hello Triangle");
+    callback();
     ImGui::SliderFloat("Rotation", &UBOData.Phi, 0.0f, 6.28f);
     ImGui::End();
 }
 
-void HelloTriangleRenderer::CreateResources(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateResources()
 {
-    CreateRenderPasses(ctx);
-    CreateDescriptorSetLayout(ctx);
-    CreateGraphicsPipelines(ctx);
+    CreateRenderPasses();
+    CreateDescriptorSetLayout();
+    CreateGraphicsPipelines();
 }
 
-void HelloTriangleRenderer::CreateSwapchainResources(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateSwapchainResources()
 {
-    CreateFramebuffers(ctx);
-    CreateCommandPools(ctx);
-    CreateCommandBuffers(ctx);
+    CreateFramebuffers();
+    CreateCommandPools();
+    CreateCommandBuffers();
 }
 
-void HelloTriangleRenderer::CreateDependentResources(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateDependentResources()
 {
-    CreateVertexBuffers(ctx);
-    CreateUniformBuffers(ctx);
-    CreateDescriptorPool(ctx);
-    CreateDescriptorSets(ctx);
+    CreateVertexBuffers();
+    CreateUniformBuffers();
+    CreateDescriptorPool();
+    CreateDescriptorSets();
 }
 
-void HelloTriangleRenderer::DestroyResources(VulkanContext &ctx)
+void HelloTriangleRenderer::DestroyResources()
 {
     vkDestroyBuffer(ctx.Device, VertexBuffer, nullptr);
     vkFreeMemory(ctx.Device, VertexBufferMemory, nullptr);
@@ -78,7 +79,7 @@ void HelloTriangleRenderer::DestroyResources(VulkanContext &ctx)
     vkDestroyDescriptorSetLayout(ctx.Device, DescriptorSetLayout, nullptr);
 }
 
-void HelloTriangleRenderer::DestroySwapchainResources(VulkanContext &ctx)
+void HelloTriangleRenderer::DestroySwapchainResources()
 {
     vkDestroyCommandPool(ctx.Device, CommandPool, nullptr);
 
@@ -88,7 +89,7 @@ void HelloTriangleRenderer::DestroySwapchainResources(VulkanContext &ctx)
     }
 }
 
-void HelloTriangleRenderer::CreateDescriptorSetLayout(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateDescriptorSetLayout()
 {
     VkDescriptorSetLayoutBinding uboLayoutBinding{};
     uboLayoutBinding.binding = 0;
@@ -107,7 +108,7 @@ void HelloTriangleRenderer::CreateDescriptorSetLayout(VulkanContext &ctx)
         throw std::runtime_error("Failed to create descriptor set layout!");
 }
 
-void HelloTriangleRenderer::CreateRenderPasses(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateRenderPasses()
 {
     VkAttachmentDescription color_attachment = {};
     color_attachment.format = ctx.Swapchain.image_format;
@@ -150,7 +151,7 @@ void HelloTriangleRenderer::CreateRenderPasses(VulkanContext &ctx)
         throw std::runtime_error("Failed to create a render pass!");
 }
 
-void HelloTriangleRenderer::CreateGraphicsPipelines(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateGraphicsPipelines()
 {
     // Graphics pipeline:
     auto vert_code = utils::ReadFileBinary("assets/spirv/HelloTriangleVert.spv");
@@ -286,7 +287,7 @@ void HelloTriangleRenderer::CreateGraphicsPipelines(VulkanContext &ctx)
     vkDestroyShaderModule(ctx.Device, vert_module, nullptr);
 }
 
-void HelloTriangleRenderer::CreateFramebuffers(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateFramebuffers()
 {
     Framebuffers.resize(SwapchainImageViews.size());
 
@@ -309,7 +310,7 @@ void HelloTriangleRenderer::CreateFramebuffers(VulkanContext &ctx)
     }
 }
 
-void HelloTriangleRenderer::CreateCommandPools(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateCommandPools()
 {
     VkCommandPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -321,7 +322,7 @@ void HelloTriangleRenderer::CreateCommandPools(VulkanContext &ctx)
         throw std::runtime_error("Failed to create a command pool!");
 }
 
-void HelloTriangleRenderer::CreateCommandBuffers(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateCommandBuffers()
 {
     CommandBuffers.resize(Framebuffers.size());
 
@@ -335,13 +336,13 @@ void HelloTriangleRenderer::CreateCommandBuffers(VulkanContext &ctx)
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
-void HelloTriangleRenderer::SubmitCommandBuffers(VulkanContext &ctx)
+void HelloTriangleRenderer::SubmitCommandBuffers()
 {
     auto &imageAcquiredSemaphore = ImageAcquiredSemaphores[FrameSemaphoreIndex];
     auto &renderCompleteSemaphore = RenderCompletedSemaphores[FrameSemaphoreIndex];
 
     vkResetCommandBuffer(CommandBuffers[FrameSemaphoreIndex], 0);
-    RecordCommandBuffer(ctx, CommandBuffers[FrameSemaphoreIndex], FrameImageIndex);
+    RecordCommandBuffer(CommandBuffers[FrameSemaphoreIndex], FrameImageIndex);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -366,11 +367,10 @@ void HelloTriangleRenderer::SubmitCommandBuffers(VulkanContext &ctx)
     }
 }
 
-void HelloTriangleRenderer::RecordCommandBuffer(VulkanContext &ctx,
-                                                VkCommandBuffer commandBuffer,
+void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
                                                 uint32_t imageIndex)
 {
-    UpdateUniformBuffer(ctx);
+    UpdateUniformBuffer();
 
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -428,7 +428,7 @@ void HelloTriangleRenderer::RecordCommandBuffer(VulkanContext &ctx,
         throw std::runtime_error("Failed to record command buffer!");
 }
 
-void HelloTriangleRenderer::CreateVertexBuffers(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateVertexBuffers()
 {
     // clang-format off
     const float r3 = std::sqrt(3.0f);
@@ -480,7 +480,7 @@ void HelloTriangleRenderer::CreateVertexBuffers(VulkanContext &ctx)
     vkFreeMemory(ctx.Device, stagingBufferMemory, nullptr);
 }
 
-void HelloTriangleRenderer::CreateUniformBuffers(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateUniformBuffers()
 {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
@@ -502,7 +502,7 @@ void HelloTriangleRenderer::CreateUniformBuffers(VulkanContext &ctx)
     }
 }
 
-void HelloTriangleRenderer::UpdateUniformBuffer(VulkanContext &ctx)
+void HelloTriangleRenderer::UpdateUniformBuffer()
 {
     auto width = static_cast<float>(ctx.Swapchain.extent.width);
     auto height = static_cast<float>(ctx.Swapchain.extent.height);
@@ -521,7 +521,7 @@ void HelloTriangleRenderer::UpdateUniformBuffer(VulkanContext &ctx)
     std::memcpy(UniformBuffersMapped[FrameSemaphoreIndex], &UBOData, sizeof(UBOData));
 }
 
-void HelloTriangleRenderer::CreateDescriptorPool(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateDescriptorPool()
 {
     VkDescriptorPoolSize poolSize{};
     poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -538,7 +538,7 @@ void HelloTriangleRenderer::CreateDescriptorPool(VulkanContext &ctx)
         throw std::runtime_error("Failed to create descriptor pool!");
 }
 
-void HelloTriangleRenderer::CreateDescriptorSets(VulkanContext &ctx)
+void HelloTriangleRenderer::CreateDescriptorSets()
 {
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, DescriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};

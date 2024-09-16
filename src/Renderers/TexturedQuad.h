@@ -6,6 +6,9 @@
 
 class TexturedQuadRenderer : public RendererBase {
   public:
+    TexturedQuadRenderer(VulkanContext& ctx, std::function<void()> callback) : RendererBase(ctx, callback) {}
+    ~TexturedQuadRenderer() {VulkanCleanup();}
+
     void OnImGui() override;
 
   private:
@@ -14,39 +17,39 @@ class TexturedQuadRenderer : public RendererBase {
         return RenderPass;
     }
 
-    void CreateResources(VulkanContext &ctx) override;
-    void CreateSwapchainResources(VulkanContext &ctx) override;
-    void CreateDependentResources(VulkanContext &ctx) override;
+    void CreateResources() override;
+    void CreateSwapchainResources() override;
+    void CreateDependentResources() override;
 
-    void DestroyResources(VulkanContext &ctx) override;
-    void DestroySwapchainResources(VulkanContext &ctx) override;
+    void DestroyResources() override;
+    void DestroySwapchainResources() override;
 
-    void SubmitCommandBuffers(VulkanContext &ctx) override;
+    void SubmitCommandBuffers() override;
 
   private:
-    void CreateDescriptorSetLayout(VulkanContext &ctx);
-    void CreateRenderPasses(VulkanContext &ctx);
-    void CreateGraphicsPipelines(VulkanContext &ctx);
+    void CreateDescriptorSetLayout();
+    void CreateRenderPasses();
+    void CreateGraphicsPipelines();
 
-    void CreateCommandPools(VulkanContext &ctx);
-    void CreateCommandBuffers(VulkanContext &ctx);
-    void CreateFramebuffers(VulkanContext &ctx);
+    void CreateCommandPools();
+    void CreateCommandBuffers();
+    void CreateFramebuffers();
 
-    void RecordCommandBuffer(VulkanContext &ctx, VkCommandBuffer commandBuffer,
+    void RecordCommandBuffer(VkCommandBuffer commandBuffer,
                              uint32_t imageIndex);
 
-    void CreateVertexBuffers(VulkanContext &ctx);
-    void CreateIndexBuffers(VulkanContext &ctx);
+    void CreateVertexBuffers();
+    void CreateIndexBuffers();
 
-    void CreateUniformBuffers(VulkanContext &ctx);
-    void UpdateUniformBuffer(VulkanContext &ctx);
+    void CreateUniformBuffers();
+    void UpdateUniformBuffer();
 
-    void CreateDescriptorPool(VulkanContext &ctx);
-    void CreateDescriptorSets(VulkanContext &ctx);
+    void CreateDescriptorPool();
+    void CreateDescriptorSets();
 
-    void CreateTextureImage(VulkanContext &ctx);
-    void CreateTextureImageView(VulkanContext &ctx);
-    void CreateTextureSampler(VulkanContext &ctx);
+    void CreateTextureImage();
+    void CreateTextureImageView();
+    void CreateTextureSampler();
 
   private:
     VkRenderPass RenderPass;

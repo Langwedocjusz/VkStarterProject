@@ -2,6 +2,8 @@
 
 #include "VulkanContext.h"
 
+#include <functional>
+
 /// Struct containing data needed for ImGuiContext
 struct RenderDataForImGui {
     VkQueue Queue;
@@ -13,47 +15,52 @@ struct RenderDataForImGui {
 /**
     Abstract base class defining an interface for
     renderers to communicate with Application and ImGuiContext.
-    Also implements basic behaviour for Queues/SyncObjects/Framebuffers
-    generation, frame drawing and presentation and swapchain recreation
+    Also implements basic behaviour for Queues/SyncObjects generation,
+    frame drawing and presentation and swapchain recreation
     logic that can be overriden later.
 */
 class RendererBase {
   public:
-    virtual ~RendererBase();
+    RendererBase(VulkanContext& context, std::function<void()> cb);
+    //Derived classes should call VulkanCleanup in their destructors!
+    virtual ~RendererBase() = default;
 
-    void OnInit(VulkanContext &ctx);
+    void OnInit();
 
     virtual void OnUpdate();
     virtual void OnImGui();
-    void OnRender(VulkanContext &ctx);
+    void OnRender();
 
-    void RecreateSwapchain(VulkanContext &ctx);
-
-    void VulkanCleanup(VulkanContext &ctx);
+    void RecreateSwapchain();
 
     RenderDataForImGui getImGuiData() const;
 
   protected:
     virtual VkRenderPass getImGuiRenderPass() const = 0;
 
-    virtual void CreateResources(VulkanContext &ctx) = 0;
-    virtual void CreateDependentResources(VulkanContext &ctx) = 0;
-    virtual void DestroyResources(VulkanContext &ctx) = 0;
+    virtual void CreateResources() = 0;
+    virtual void CreateDependentResources() = 0;
+    virtual void DestroyResources() = 0;
 
-    virtual void CreateSwapchainResources(VulkanContext &ctx) = 0;
-    virtual void DestroySwapchainResources(VulkanContext &ctx) = 0;
+    virtual void CreateSwapchainResources() = 0;
+    virtual void DestroySwapchainResources() = 0;
 
-    virtual void SubmitCommandBuffers(VulkanContext &ctx) = 0;
+    virtual void SubmitCommandBuffers() = 0;
 
-    void CreateQueues(VulkanContext &ctx);
-    void CreateSyncObjects(VulkanContext &ctx);
-    void CreateSwapchainViews(VulkanContext &ctx);
-    void DestroySwapchainViews(VulkanContext &ctx);
+    void CreateQueues();
+    void CreateSyncObjects();
+    void CreateSwapchainViews();
+    void DestroySwapchainViews();
 
-    void DrawFrame(VulkanContext &ctx);
-    void PresentFrame(VulkanContext &ctx);
+    void DrawFrame();
+    void PresentFrame();
+
+    void VulkanCleanup();
 
   protected:
+    VulkanContext& ctx;
+    std::function<void()> callback;
+
     const size_t MAX_FRAMES_IN_FLIGHT = 2;
 
     VkQueue GraphicsQueue;
