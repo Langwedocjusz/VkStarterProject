@@ -30,7 +30,7 @@ struct CreateImageInfo {
 void CreateImage(VulkanContext &ctx, VkImage &image, VkDeviceMemory &imageMemory,
                  CreateImageInfo info);
 
-VkImageView CreateImageView(VulkanContext &ctx, VkImage image, VkFormat format);
+VkImageView CreateImageView(VulkanContext &ctx, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT);
 
 VkCommandBuffer BeginSingleTimeCommands(VulkanContext &ctx, VkCommandPool commandPool);
 void EndSingleTimeCommands(VulkanContext &ctx, VkQueue queue, VkCommandPool commandPool,
@@ -67,5 +67,11 @@ struct CopyBufferToImageInfo {
 };
 
 void CopyBufferToImage(VulkanContext &ctx, CopyBufferToImageInfo info);
+
+VkFormat FindSupportedFormat(VulkanContext &ctx, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+
+VkFormat FindDepthFormat(VulkanContext &ctx);
+
+bool HasStencilComponent(VkFormat format);
 
 } // namespace utils

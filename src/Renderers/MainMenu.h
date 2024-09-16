@@ -28,7 +28,6 @@ class MainMenuRenderer : public RendererBase {
 
   private:
     void CreateRenderPasses();
-    //void CreateGraphicsPipelines();
 
     void CreateCommandPools();
     void CreateCommandBuffers();

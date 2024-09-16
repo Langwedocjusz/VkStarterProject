@@ -3,6 +3,7 @@
 #include "MainMenu.h"
 #include "HelloTriangle.h"
 #include "TexturedQuad.h"
+#include "TexturedCube.h"
 
 #include "imgui.h"
 
@@ -102,6 +103,11 @@ void Application::RecreateRenderer(bool first_run)
             m_RecreateRenderer = true;
             m_RendererType = TexturedQuad;
         }
+        if (ImGui::Button("Textured Cube", size))
+        {
+            m_RecreateRenderer = true;
+            m_RendererType = TexturedCube;
+        }
     };
 
     switch(m_RendererType)
@@ -121,6 +127,11 @@ void Application::RecreateRenderer(bool first_run)
         case TexturedQuad:
         {
             m_Renderer = std::make_unique<TexturedQuadRenderer>(m_Ctx, go_back);
+            break;
+        }
+        case TexturedCube:
+        {
+            m_Renderer = std::make_unique<TexturedCubeRenderer>(m_Ctx, go_back);
             break;
         }
     }

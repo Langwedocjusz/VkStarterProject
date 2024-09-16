@@ -14,3 +14,4 @@ download_asset () {
 }
 
 download_asset vulkan-tutorial.com/images/texture.jpg ./assets/textures/texture.jpg
+download_asset https://learnopengl.com/img/textures/container.jpg assets/textures/container.jpg

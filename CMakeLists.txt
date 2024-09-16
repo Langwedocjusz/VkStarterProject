@@ -37,6 +37,8 @@ target_sources(${PROJECT_NAME}
         src/Renderers/MainMenu.cpp
         src/Renderers/RendererBase.h
         src/Renderers/RendererBase.cpp
+        src/Renderers/TexturedCube.h
+        src/Renderers/TexturedCube.cpp
         src/Renderers/TexturedQuad.h
         src/Renderers/TexturedQuad.cpp
         src/SystemWindow.h
@@ -78,3 +80,4 @@ target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
 
 #Dependency-specific definitions:
 target_compile_definitions(${PROJECT_NAME} PRIVATE "GLFW_INCLUDE_VULKAN")
+target_compile_definitions(${PROJECT_NAME} PRIVATE "GLM_FORCE_DEPTH_ZERO_TO_ONE")

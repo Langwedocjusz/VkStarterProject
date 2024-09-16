@@ -22,7 +22,7 @@ private:
     VulkanContext m_Ctx;
 
     enum class SupportedRenderer{
-        MainMenu, HelloTraingle, TexturedQuad
+        MainMenu, HelloTraingle, TexturedQuad, TexturedCube
     };
 
     SupportedRenderer m_RendererType = SupportedRenderer::MainMenu;
