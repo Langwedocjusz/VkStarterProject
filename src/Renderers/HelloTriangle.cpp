@@ -21,16 +21,11 @@ VkVertexInputBindingDescription HelloTriangleRenderer::Vertex::getBindingDescrip
 std::array<VkVertexInputAttributeDescription, 2> HelloTriangleRenderer::Vertex::
     getAttributeDescriptions()
 {
-    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
-    attributeDescriptions[0].binding = 0;
-    attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-    attributeDescriptions[0].offset = offsetof(Vertex, Pos);
-
-    attributeDescriptions[1].binding = 0;
-    attributeDescriptions[1].location = 1;
-    attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attributeDescriptions[1].offset = offsetof(Vertex, Color);
+    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{{
+        // location, binding, format, offset
+        {0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, Pos)},
+        {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Color)},
+    }};
 
     return attributeDescriptions;
 }
@@ -66,30 +61,30 @@ void HelloTriangleRenderer::CreateDependentResources(VulkanContext &ctx)
 
 void HelloTriangleRenderer::DestroyResources(VulkanContext &ctx)
 {
-    ctx.Disp.destroyBuffer(VertexBuffer, nullptr);
-    ctx.Disp.freeMemory(VertexBufferMemory, nullptr);
+    vkDestroyBuffer(ctx.Device, VertexBuffer, nullptr);
+    vkFreeMemory(ctx.Device, VertexBufferMemory, nullptr);
 
-    ctx.Disp.destroyPipeline(GraphicsPipeline, nullptr);
-    ctx.Disp.destroyPipelineLayout(PipelineLayout, nullptr);
-    ctx.Disp.destroyRenderPass(RenderPass, nullptr);
+    vkDestroyPipeline(ctx.Device, GraphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(ctx.Device, PipelineLayout, nullptr);
+    vkDestroyRenderPass(ctx.Device, RenderPass, nullptr);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        ctx.Disp.destroyBuffer(UniformBuffers[i], nullptr);
-        ctx.Disp.freeMemory(UniformBuffersMemory[i], nullptr);
+        vkDestroyBuffer(ctx.Device, UniformBuffers[i], nullptr);
+        vkFreeMemory(ctx.Device, UniformBuffersMemory[i], nullptr);
     }
 
-    ctx.Disp.destroyDescriptorPool(DescriptorPool, nullptr);
-    ctx.Disp.destroyDescriptorSetLayout(DescriptorSetLayout, nullptr);
+    vkDestroyDescriptorPool(ctx.Device, DescriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(ctx.Device, DescriptorSetLayout, nullptr);
 }
 
 void HelloTriangleRenderer::DestroySwapchainResources(VulkanContext &ctx)
 {
-    ctx.Disp.destroyCommandPool(CommandPool, nullptr);
+    vkDestroyCommandPool(ctx.Device, CommandPool, nullptr);
 
     for (auto framebuffer : Framebuffers)
     {
-        ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
+        vkDestroyFramebuffer(ctx.Device, framebuffer, nullptr);
     }
 }
 
@@ -151,7 +146,7 @@ void HelloTriangleRenderer::CreateRenderPasses(VulkanContext &ctx)
     render_pass_info.dependencyCount = 1;
     render_pass_info.pDependencies = &dependency;
 
-    if (ctx.Disp.createRenderPass(&render_pass_info, nullptr, &RenderPass) != VK_SUCCESS)
+    if (vkCreateRenderPass(ctx.Device, &render_pass_info, nullptr, &RenderPass) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a render pass!");
 }
 
@@ -255,7 +250,7 @@ void HelloTriangleRenderer::CreateGraphicsPipelines(VulkanContext &ctx)
     pipeline_layout_info.pSetLayouts = &DescriptorSetLayout;
     pipeline_layout_info.pushConstantRangeCount = 0;
 
-    if (ctx.Disp.createPipelineLayout(&pipeline_layout_info, nullptr, &PipelineLayout) !=
+    if (vkCreatePipelineLayout(ctx.Device, &pipeline_layout_info, nullptr, &PipelineLayout) !=
         VK_SUCCESS)
         throw std::runtime_error("Failed to create a pipeline layout!");
 
@@ -283,12 +278,12 @@ void HelloTriangleRenderer::CreateGraphicsPipelines(VulkanContext &ctx)
     pipeline_info.subpass = 0;
     pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
 
-    if (ctx.Disp.createGraphicsPipelines(VK_NULL_HANDLE, 1, &pipeline_info, nullptr,
+    if (vkCreateGraphicsPipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr,
                                          &GraphicsPipeline) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a Graphics Pipeline!");
 
-    ctx.Disp.destroyShaderModule(frag_module, nullptr);
-    ctx.Disp.destroyShaderModule(vert_module, nullptr);
+    vkDestroyShaderModule(ctx.Device, frag_module, nullptr);
+    vkDestroyShaderModule(ctx.Device, vert_module, nullptr);
 }
 
 void HelloTriangleRenderer::CreateFramebuffers(VulkanContext &ctx)
@@ -308,7 +303,7 @@ void HelloTriangleRenderer::CreateFramebuffers(VulkanContext &ctx)
         framebuffer_info.height = ctx.Swapchain.extent.height;
         framebuffer_info.layers = 1;
 
-        if (ctx.Disp.createFramebuffer(&framebuffer_info, nullptr, &Framebuffers[i]) !=
+        if (vkCreateFramebuffer(ctx.Device, &framebuffer_info, nullptr, &Framebuffers[i]) !=
             VK_SUCCESS)
             throw std::runtime_error("Failed to create a framebuffer!");
     }
@@ -322,7 +317,7 @@ void HelloTriangleRenderer::CreateCommandPools(VulkanContext &ctx)
     pool_info.queueFamilyIndex =
         ctx.Device.get_queue_index(vkb::QueueType::graphics).value();
 
-    if (ctx.Disp.createCommandPool(&pool_info, nullptr, &CommandPool) != VK_SUCCESS)
+    if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &CommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a command pool!");
 }
 
@@ -336,7 +331,7 @@ void HelloTriangleRenderer::CreateCommandBuffers(VulkanContext &ctx)
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = (uint32_t)CommandBuffers.size();
 
-    if (ctx.Disp.allocateCommandBuffers(&allocInfo, CommandBuffers.data()) != VK_SUCCESS)
+    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, CommandBuffers.data()) != VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
@@ -364,7 +359,7 @@ void HelloTriangleRenderer::SubmitCommandBuffers(VulkanContext &ctx)
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signal_semaphores;
 
-    if (ctx.Disp.queueSubmit(GraphicsQueue, 1, &submitInfo,
+    if (vkQueueSubmit(GraphicsQueue, 1, &submitInfo,
                              InFlightFences[FrameSemaphoreIndex]) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to submit draw command buffer!");
@@ -380,7 +375,7 @@ void HelloTriangleRenderer::RecordCommandBuffer(VulkanContext &ctx,
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    if (ctx.Disp.beginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
+    if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
     VkRenderPassBeginInfo render_pass_info{};
@@ -394,10 +389,10 @@ void HelloTriangleRenderer::RecordCommandBuffer(VulkanContext &ctx,
     render_pass_info.clearValueCount = 1;
     render_pass_info.pClearValues = &clearColor;
 
-    ctx.Disp.cmdBeginRenderPass(commandBuffer, &render_pass_info,
+    vkCmdBeginRenderPass(commandBuffer, &render_pass_info,
                                 VK_SUBPASS_CONTENTS_INLINE);
     {
-        ctx.Disp.cmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                  GraphicsPipeline);
 
         VkViewport viewport = {};
@@ -407,29 +402,29 @@ void HelloTriangleRenderer::RecordCommandBuffer(VulkanContext &ctx,
         viewport.height = static_cast<float>(ctx.Swapchain.extent.height);
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
-        ctx.Disp.cmdSetViewport(commandBuffer, 0, 1, &viewport);
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
         VkRect2D scissor = {};
         scissor.offset = {0, 0};
         scissor.extent = ctx.Swapchain.extent;
-        ctx.Disp.cmdSetScissor(commandBuffer, 0, 1, &scissor);
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         VkBuffer vertexBuffers[] = {VertexBuffer};
         VkDeviceSize offsets[] = {0};
-        ctx.Disp.cmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 PipelineLayout, 0, 1,
                                 &DescriptorSets[FrameSemaphoreIndex], 0, nullptr);
 
-        ctx.Disp.cmdDraw(commandBuffer, static_cast<uint32_t>(VertexCount), 1, 0, 0);
+        vkCmdDraw(commandBuffer, static_cast<uint32_t>(VertexCount), 1, 0, 0);
 
         ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
     }
 
-    ctx.Disp.cmdEndRenderPass(commandBuffer);
+    vkCmdEndRenderPass(commandBuffer);
 
-    if (ctx.Disp.endCommandBuffer(commandBuffer) != VK_SUCCESS)
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");
 }
 

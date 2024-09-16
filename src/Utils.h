@@ -30,6 +30,8 @@ struct CreateImageInfo {
 void CreateImage(VulkanContext &ctx, VkImage &image, VkDeviceMemory &imageMemory,
                  CreateImageInfo info);
 
+VkImageView CreateImageView(VulkanContext &ctx, VkImage image, VkFormat format);
+
 VkCommandBuffer BeginSingleTimeCommands(VulkanContext &ctx, VkCommandPool commandPool);
 void EndSingleTimeCommands(VulkanContext &ctx, VkQueue queue, VkCommandPool commandPool,
                            VkCommandBuffer commandBuffer);

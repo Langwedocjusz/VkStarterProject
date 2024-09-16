@@ -24,21 +24,18 @@ VkVertexInputBindingDescription TexturedQuadRenderer::Vertex::getBindingDescript
 std::array<VkVertexInputAttributeDescription, 2> TexturedQuadRenderer::Vertex::
     getAttributeDescriptions()
 {
-    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
-    attributeDescriptions[0].binding = 0;
-    attributeDescriptions[0].location = 0;
-    attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-    attributeDescriptions[0].offset = offsetof(Vertex, Pos);
-    attributeDescriptions[1].binding = 0;
-    attributeDescriptions[1].location = 1;
-    attributeDescriptions[1].format = VK_FORMAT_R32G32_SFLOAT;
-    attributeDescriptions[1].offset = offsetof(Vertex, TexCoord);
+    std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{{
+        // location, binding, format, offset
+        {0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, Pos)},
+        {1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, TexCoord)},
+    }};
+
     return attributeDescriptions;
 }
 
 void TexturedQuadRenderer::OnImGui()
 {
-    //ImGui::ShowDemoWindow();
+    // ImGui::ShowDemoWindow();
 
     ImGui::Begin("Textured Quad");
     ImGui::SliderFloat("Rotation", &UBOData.Phi, 0.0f, 6.28f);
@@ -73,38 +70,38 @@ void TexturedQuadRenderer::CreateDependentResources(VulkanContext &ctx)
 
 void TexturedQuadRenderer::DestroyResources(VulkanContext &ctx)
 {
-    ctx.Disp.destroySampler(TextureSampler, nullptr);
-    ctx.Disp.destroyImageView(TextureImageView, nullptr);
-    ctx.Disp.destroyImage(TextureImage, nullptr);
-    ctx.Disp.freeMemory(TextureImageMemory, nullptr);
+    vkDestroySampler(ctx.Device, TextureSampler, nullptr);
+    vkDestroyImageView(ctx.Device, TextureImageView, nullptr);
+    vkDestroyImage(ctx.Device, TextureImage, nullptr);
+    vkFreeMemory(ctx.Device, TextureImageMemory, nullptr);
 
-    ctx.Disp.destroyBuffer(VertexBuffer, nullptr);
-    ctx.Disp.freeMemory(VertexBufferMemory, nullptr);
+    vkDestroyBuffer(ctx.Device, VertexBuffer, nullptr);
+    vkFreeMemory(ctx.Device, VertexBufferMemory, nullptr);
 
-    ctx.Disp.destroyBuffer(IndexBuffer, nullptr);
-    ctx.Disp.freeMemory(IndexBufferMemory, nullptr);
+    vkDestroyBuffer(ctx.Device, IndexBuffer, nullptr);
+    vkFreeMemory(ctx.Device, IndexBufferMemory, nullptr);
 
-    ctx.Disp.destroyPipeline(GraphicsPipeline, nullptr);
-    ctx.Disp.destroyPipelineLayout(PipelineLayout, nullptr);
-    ctx.Disp.destroyRenderPass(RenderPass, nullptr);
+    vkDestroyPipeline(ctx.Device, GraphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(ctx.Device, PipelineLayout, nullptr);
+    vkDestroyRenderPass(ctx.Device, RenderPass, nullptr);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        ctx.Disp.destroyBuffer(UniformBuffers[i], nullptr);
-        ctx.Disp.freeMemory(UniformBuffersMemory[i], nullptr);
+        vkDestroyBuffer(ctx.Device, UniformBuffers[i], nullptr);
+        vkFreeMemory(ctx.Device, UniformBuffersMemory[i], nullptr);
     }
 
-    ctx.Disp.destroyDescriptorPool(DescriptorPool, nullptr);
-    ctx.Disp.destroyDescriptorSetLayout(DescriptorSetLayout, nullptr);
+    vkDestroyDescriptorPool(ctx.Device, DescriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(ctx.Device, DescriptorSetLayout, nullptr);
 }
 
 void TexturedQuadRenderer::DestroySwapchainResources(VulkanContext &ctx)
 {
-    ctx.Disp.destroyCommandPool(CommandPool, nullptr);
+    vkDestroyCommandPool(ctx.Device, CommandPool, nullptr);
 
     for (auto framebuffer : Framebuffers)
     {
-        ctx.Disp.destroyFramebuffer(framebuffer, nullptr);
+        vkDestroyFramebuffer(ctx.Device, framebuffer, nullptr);
     }
 }
 
@@ -176,7 +173,8 @@ void TexturedQuadRenderer::CreateRenderPasses(VulkanContext &ctx)
     render_pass_info.dependencyCount = 1;
     render_pass_info.pDependencies = &dependency;
 
-    if (ctx.Disp.createRenderPass(&render_pass_info, nullptr, &RenderPass) != VK_SUCCESS)
+    if (vkCreateRenderPass(ctx.Device, &render_pass_info, nullptr, &RenderPass) !=
+        VK_SUCCESS)
         throw std::runtime_error("Failed to create a render pass!");
 }
 
@@ -280,8 +278,8 @@ void TexturedQuadRenderer::CreateGraphicsPipelines(VulkanContext &ctx)
     pipeline_layout_info.pSetLayouts = &DescriptorSetLayout;
     pipeline_layout_info.pushConstantRangeCount = 0;
 
-    if (ctx.Disp.createPipelineLayout(&pipeline_layout_info, nullptr, &PipelineLayout) !=
-        VK_SUCCESS)
+    if (vkCreatePipelineLayout(ctx.Device, &pipeline_layout_info, nullptr,
+                               &PipelineLayout) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a pipeline layout!");
 
     std::vector<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT,
@@ -308,12 +306,12 @@ void TexturedQuadRenderer::CreateGraphicsPipelines(VulkanContext &ctx)
     pipeline_info.subpass = 0;
     pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
 
-    if (ctx.Disp.createGraphicsPipelines(VK_NULL_HANDLE, 1, &pipeline_info, nullptr,
-                                         &GraphicsPipeline) != VK_SUCCESS)
+    if (vkCreateGraphicsPipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr,
+                                  &GraphicsPipeline) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a Graphics Pipeline!");
 
-    ctx.Disp.destroyShaderModule(frag_module, nullptr);
-    ctx.Disp.destroyShaderModule(vert_module, nullptr);
+    vkDestroyShaderModule(ctx.Device, frag_module, nullptr);
+    vkDestroyShaderModule(ctx.Device, vert_module, nullptr);
 }
 
 void TexturedQuadRenderer::CreateFramebuffers(VulkanContext &ctx)
@@ -333,8 +331,8 @@ void TexturedQuadRenderer::CreateFramebuffers(VulkanContext &ctx)
         framebuffer_info.height = ctx.Swapchain.extent.height;
         framebuffer_info.layers = 1;
 
-        if (ctx.Disp.createFramebuffer(&framebuffer_info, nullptr, &Framebuffers[i]) !=
-            VK_SUCCESS)
+        if (vkCreateFramebuffer(ctx.Device, &framebuffer_info, nullptr,
+                                &Framebuffers[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create a framebuffer!");
     }
 }
@@ -347,7 +345,7 @@ void TexturedQuadRenderer::CreateCommandPools(VulkanContext &ctx)
     pool_info.queueFamilyIndex =
         ctx.Device.get_queue_index(vkb::QueueType::graphics).value();
 
-    if (ctx.Disp.createCommandPool(&pool_info, nullptr, &CommandPool) != VK_SUCCESS)
+    if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &CommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a command pool!");
 }
 
@@ -361,7 +359,8 @@ void TexturedQuadRenderer::CreateCommandBuffers(VulkanContext &ctx)
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = (uint32_t)CommandBuffers.size();
 
-    if (ctx.Disp.allocateCommandBuffers(&allocInfo, CommandBuffers.data()) != VK_SUCCESS)
+    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, CommandBuffers.data()) !=
+        VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
@@ -389,8 +388,8 @@ void TexturedQuadRenderer::SubmitCommandBuffers(VulkanContext &ctx)
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signal_semaphores;
 
-    if (ctx.Disp.queueSubmit(GraphicsQueue, 1, &submitInfo,
-                             InFlightFences[FrameSemaphoreIndex]) != VK_SUCCESS)
+    if (vkQueueSubmit(GraphicsQueue, 1, &submitInfo,
+                      InFlightFences[FrameSemaphoreIndex]) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to submit draw command buffer!");
     }
@@ -405,7 +404,7 @@ void TexturedQuadRenderer::RecordCommandBuffer(VulkanContext &ctx,
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-    if (ctx.Disp.beginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
+    if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
     VkRenderPassBeginInfo render_pass_info{};
@@ -419,11 +418,10 @@ void TexturedQuadRenderer::RecordCommandBuffer(VulkanContext &ctx,
     render_pass_info.clearValueCount = 1;
     render_pass_info.pClearValues = &clearColor;
 
-    ctx.Disp.cmdBeginRenderPass(commandBuffer, &render_pass_info,
-                                VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(commandBuffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
     {
-        ctx.Disp.cmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                 GraphicsPipeline);
+        vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                          GraphicsPipeline);
 
         VkViewport viewport = {};
         viewport.x = 0.0f;
@@ -432,16 +430,16 @@ void TexturedQuadRenderer::RecordCommandBuffer(VulkanContext &ctx,
         viewport.height = static_cast<float>(ctx.Swapchain.extent.height);
         viewport.minDepth = 0.0f;
         viewport.maxDepth = 1.0f;
-        ctx.Disp.cmdSetViewport(commandBuffer, 0, 1, &viewport);
+        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
         VkRect2D scissor = {};
         scissor.offset = {0, 0};
         scissor.extent = ctx.Swapchain.extent;
-        ctx.Disp.cmdSetScissor(commandBuffer, 0, 1, &scissor);
+        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
         VkBuffer vertexBuffers[] = {VertexBuffer};
         VkDeviceSize offsets[] = {0};
-        ctx.Disp.cmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
         vkCmdBindIndexBuffer(commandBuffer, IndexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
@@ -449,15 +447,14 @@ void TexturedQuadRenderer::RecordCommandBuffer(VulkanContext &ctx,
                                 PipelineLayout, 0, 1,
                                 &DescriptorSets[FrameSemaphoreIndex], 0, nullptr);
 
-        ctx.Disp.cmdDrawIndexed(commandBuffer, static_cast<uint32_t>(IndexCount), 1, 0, 0,
-                                0);
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(IndexCount), 1, 0, 0, 0);
 
         ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
     }
 
-    ctx.Disp.cmdEndRenderPass(commandBuffer);
+    vkCmdEndRenderPass(commandBuffer);
 
-    if (ctx.Disp.endCommandBuffer(commandBuffer) != VK_SUCCESS)
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");
 }
 
@@ -699,36 +696,40 @@ void TexturedQuadRenderer::CreateTextureImage(VulkanContext &ctx)
     stbi_image_free(pixels);
 
     {
-        utils::CreateImageInfo info{.Width = static_cast<uint32_t>(texWidth),
-                                    .Height = static_cast<uint32_t>(texHeight),
-                                    .Format = VK_FORMAT_R8G8B8A8_SRGB,
-                                    .Tiling = VK_IMAGE_TILING_OPTIMAL,
-                                    .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                                             VK_IMAGE_USAGE_SAMPLED_BIT,
-                                    .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT};
+        utils::CreateImageInfo info{
+            .Width = static_cast<uint32_t>(texWidth),
+            .Height = static_cast<uint32_t>(texHeight),
+            .Format = VK_FORMAT_R8G8B8A8_SRGB,
+            .Tiling = VK_IMAGE_TILING_OPTIMAL,
+            .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+            .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        };
 
         utils::CreateImage(ctx, TextureImage, TextureImageMemory, info);
     }
 
     {
-        utils::TransitionImageLayoutInfo info{.Queue = GraphicsQueue,
-                                              .Pool = CommandPool,
-                                              .Image = TextureImage,
-                                              .Format = VK_FORMAT_R8G8B8A8_SRGB,
-                                              .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                                              .NewLayout =
-                                                  VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL};
+        utils::TransitionImageLayoutInfo info{
+            .Queue = GraphicsQueue,
+            .Pool = CommandPool,
+            .Image = TextureImage,
+            .Format = VK_FORMAT_R8G8B8A8_SRGB,
+            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        };
 
         utils::TransitionImageLayout(ctx, info);
     }
 
     {
-        utils::CopyBufferToImageInfo info{.Queue = GraphicsQueue,
-                                          .Pool = CommandPool,
-                                          .Buffer = stagingBuffer,
-                                          .Image = TextureImage,
-                                          .Width = static_cast<uint32_t>(texWidth),
-                                          .Height = static_cast<uint32_t>(texHeight)};
+        utils::CopyBufferToImageInfo info{
+            .Queue = GraphicsQueue,
+            .Pool = CommandPool,
+            .Buffer = stagingBuffer,
+            .Image = TextureImage,
+            .Width = static_cast<uint32_t>(texWidth),
+            .Height = static_cast<uint32_t>(texHeight),
+        };
 
         utils::CopyBufferToImage(ctx, info);
     }
@@ -740,7 +741,8 @@ void TexturedQuadRenderer::CreateTextureImage(VulkanContext &ctx)
             .Image = TextureImage,
             .Format = VK_FORMAT_R8G8B8A8_SRGB,
             .OldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        };
 
         utils::TransitionImageLayout(ctx, info);
     }
@@ -751,20 +753,7 @@ void TexturedQuadRenderer::CreateTextureImage(VulkanContext &ctx)
 
 void TexturedQuadRenderer::CreateTextureImageView(VulkanContext &ctx)
 {
-    VkImageViewCreateInfo viewInfo{};
-    viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = TextureImage;
-    viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
-    viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    viewInfo.subresourceRange.baseMipLevel = 0;
-    viewInfo.subresourceRange.levelCount = 1;
-    viewInfo.subresourceRange.baseArrayLayer = 0;
-    viewInfo.subresourceRange.layerCount = 1;
-
-    if (vkCreateImageView(ctx.Device, &viewInfo, nullptr, &TextureImageView) !=
-        VK_SUCCESS)
-        throw std::runtime_error("Failed to create texture image view!");
+    TextureImageView = utils::CreateImageView(ctx, TextureImage, VK_FORMAT_R8G8B8A8_SRGB);
 }
 
 void TexturedQuadRenderer::CreateTextureSampler(VulkanContext &ctx)
