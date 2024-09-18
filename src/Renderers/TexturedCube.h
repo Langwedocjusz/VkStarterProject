@@ -4,6 +4,7 @@
 
 #include "Buffer.h"
 #include "Image.h"
+#include "Pipeline.h"
 
 #include <glm/glm.hpp>
 
@@ -68,8 +69,10 @@ class TexturedCubeRenderer : public RendererBase {
     VkDescriptorPool DescriptorPool;
     std::vector<VkDescriptorSet> DescriptorSets;
 
-    VkPipelineLayout PipelineLayout;
-    VkPipeline GraphicsPipeline;
+    //VkPipelineLayout PipelineLayout;
+    //VkPipeline GraphicsPipeline;
+
+    Pipeline GraphicsPipeline;
 
     VkCommandPool CommandPool;
     std::vector<VkCommandBuffer> CommandBuffers;
@@ -79,7 +82,7 @@ class TexturedCubeRenderer : public RendererBase {
         glm::vec2 TexCoord;
 
         static VkVertexInputBindingDescription getBindingDescription();
-        static std::array<VkVertexInputAttributeDescription, 2>
+        static std::vector<VkVertexInputAttributeDescription>
         getAttributeDescriptions();
     };
 

@@ -3,6 +3,7 @@
 #include "RendererBase.h"
 
 #include "Buffer.h"
+#include "Pipeline.h"
 
 #include <glm/glm.hpp>
 
@@ -60,8 +61,7 @@ class HelloTriangleRenderer : public RendererBase {
     VkDescriptorPool DescriptorPool;
     std::vector<VkDescriptorSet> DescriptorSets;
 
-    VkPipelineLayout PipelineLayout;
-    VkPipeline GraphicsPipeline;
+    Pipeline GraphicsPipeline;
 
     VkCommandPool CommandPool;
     std::vector<VkCommandBuffer> CommandBuffers;
@@ -71,8 +71,7 @@ class HelloTriangleRenderer : public RendererBase {
         glm::vec3 Color;
 
         static VkVertexInputBindingDescription getBindingDescription();
-        static std::array<VkVertexInputAttributeDescription, 2>
-        getAttributeDescriptions();
+        static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
     };
 
     Buffer VertexBuffer;

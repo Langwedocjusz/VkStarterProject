@@ -49,6 +49,8 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/Image.cpp
         src/Vulkan/ImageLoaders.h
         src/Vulkan/ImageLoaders.cpp
+        src/Vulkan/Pipeline.h
+        src/Vulkan/Pipeline.cpp
         src/Vulkan/Utils.h
         src/Vulkan/Utils.cpp
         src/VulkanContext.h
