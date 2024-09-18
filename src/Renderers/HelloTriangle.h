@@ -2,14 +2,20 @@
 
 #include "RendererBase.h"
 
-#include <glm/glm.hpp>
+#include "Buffer.h"
 
-#include <iostream>
+#include <glm/glm.hpp>
 
 class HelloTriangleRenderer : public RendererBase {
   public:
-    HelloTriangleRenderer(VulkanContext& ctx, std::function<void()> callback) : RendererBase(ctx, callback) {}
-    ~HelloTriangleRenderer() {VulkanCleanup();}
+    HelloTriangleRenderer(VulkanContext &ctx, std::function<void()> callback)
+        : RendererBase(ctx, callback)
+    {
+    }
+    ~HelloTriangleRenderer()
+    {
+        VulkanCleanup();
+    }
 
     void OnImGui() override;
 
@@ -37,8 +43,7 @@ class HelloTriangleRenderer : public RendererBase {
     void CreateCommandBuffers();
     void CreateFramebuffers();
 
-    void RecordCommandBuffer(VkCommandBuffer commandBuffer,
-                             uint32_t imageIndex);
+    void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void CreateVertexBuffers();
 
@@ -70,12 +75,10 @@ class HelloTriangleRenderer : public RendererBase {
         getAttributeDescriptions();
     };
 
-    VkBuffer VertexBuffer;
-    VkDeviceMemory VertexBufferMemory;
+    Buffer VertexBuffer;
     size_t VertexCount;
 
-    std::vector<VkBuffer> UniformBuffers;
-    std::vector<VkDeviceMemory> UniformBuffersMemory;
+    std::vector<Buffer> UniformBuffers;
     std::vector<void *> UniformBuffersMapped;
 
     struct UniformBufferObject {

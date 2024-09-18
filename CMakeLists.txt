@@ -43,8 +43,12 @@ target_sources(${PROJECT_NAME}
         src/Renderers/TexturedQuad.cpp
         src/SystemWindow.h
         src/SystemWindow.cpp
-        src/Utils.h
-        src/Utils.cpp
+        src/Vulkan/Buffer.h
+        src/Vulkan/Buffer.cpp
+        src/Vulkan/Image.h
+        src/Vulkan/Image.cpp
+        src/Vulkan/Utils.h
+        src/Vulkan/Utils.cpp
         src/VulkanContext.h
         src/VulkanContext.cpp
 )
@@ -54,7 +58,12 @@ file(GLOB imgui_impl vendor/imgui/backends/imgui_impl_vulkan.cpp vendor/imgui/ba
 target_sources(${PROJECT_NAME} PRIVATE ${imgui_impl})
 
 #Include directories
-target_include_directories(${PROJECT_NAME} PRIVATE src src/Renderers)
+target_include_directories(${PROJECT_NAME}
+    PRIVATE
+        src
+        src/Vulkan
+        src/Renderers
+)
 
 #For filters in IDEs like Visual studio:
 source_group(src REGULAR_EXPRESSION "src/*")

@@ -2,11 +2,9 @@
 
 #include <iostream>
 
-RendererBase::RendererBase(VulkanContext& context, std::function<void()> cb)
-    : ctx(context)
-    , callback(cb)
+RendererBase::RendererBase(VulkanContext &context, std::function<void()> cb)
+    : ctx(context), callback(cb)
 {
-
 }
 
 void RendererBase::OnInit()

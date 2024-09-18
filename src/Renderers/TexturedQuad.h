@@ -2,12 +2,21 @@
 
 #include "RendererBase.h"
 
+#include "Buffer.h"
+#include "Image.h"
+
 #include <glm/glm.hpp>
 
 class TexturedQuadRenderer : public RendererBase {
   public:
-    TexturedQuadRenderer(VulkanContext& ctx, std::function<void()> callback) : RendererBase(ctx, callback) {}
-    ~TexturedQuadRenderer() {VulkanCleanup();}
+    TexturedQuadRenderer(VulkanContext &ctx, std::function<void()> callback)
+        : RendererBase(ctx, callback)
+    {
+    }
+    ~TexturedQuadRenderer()
+    {
+        VulkanCleanup();
+    }
 
     void OnImGui() override;
 
@@ -35,8 +44,7 @@ class TexturedQuadRenderer : public RendererBase {
     void CreateCommandBuffers();
     void CreateFramebuffers();
 
-    void RecordCommandBuffer(VkCommandBuffer commandBuffer,
-                             uint32_t imageIndex);
+    void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void CreateVertexBuffers();
     void CreateIndexBuffers();
@@ -73,16 +81,13 @@ class TexturedQuadRenderer : public RendererBase {
         getAttributeDescriptions();
     };
 
-    VkBuffer VertexBuffer;
-    VkDeviceMemory VertexBufferMemory;
+    Buffer VertexBuffer;
     size_t VertexCount;
 
-    VkBuffer IndexBuffer;
-    VkDeviceMemory IndexBufferMemory;
+    Buffer IndexBuffer;
     size_t IndexCount;
 
-    std::vector<VkBuffer> UniformBuffers;
-    std::vector<VkDeviceMemory> UniformBuffersMemory;
+    std::vector<Buffer> UniformBuffers;
     std::vector<void *> UniformBuffersMapped;
 
     struct UniformBufferObject {
@@ -91,8 +96,7 @@ class TexturedQuadRenderer : public RendererBase {
     };
     UniformBufferObject UBOData;
 
-    VkImage TextureImage;
-    VkDeviceMemory TextureImageMemory;
+    Image TextureImage;
     VkImageView TextureImageView;
     VkSampler TextureSampler;
 };

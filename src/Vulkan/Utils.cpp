@@ -42,103 +42,8 @@ VkShaderModule utils::CreateShaderModule(VulkanContext &ctx,
     return shaderModule;
 }
 
-uint32_t utils::FindMemoryType(VulkanContext &ctx, uint32_t typeFilter,
-                               VkMemoryPropertyFlags properties)
-{
-    VkPhysicalDeviceMemoryProperties memProperties;
-    vkGetPhysicalDeviceMemoryProperties(ctx.PhysicalDevice, &memProperties);
-
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-    {
-        const auto current_flags = memProperties.memoryTypes[i].propertyFlags;
-
-        bool memory_suitable = (typeFilter & (1 << i));
-        memory_suitable &= ((current_flags & properties) == properties);
-
-        if (memory_suitable)
-        {
-            return i;
-        }
-    }
-
-    throw std::runtime_error("Failed to find suitable memory type!");
-}
-
-void utils::CreateBuffer(VulkanContext &ctx, VkDeviceSize size, VkBufferUsageFlags usage,
-                         VkMemoryPropertyFlags properties, VkBuffer &buffer,
-                         VkDeviceMemory &bufferMemory)
-{
-    VkBufferCreateInfo bufferInfo{};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    if (vkCreateBuffer(ctx.Device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to create vertex buffer!");
-    }
-
-    VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(ctx.Device, buffer, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex =
-        FindMemoryType(ctx, memRequirements.memoryTypeBits, properties);
-
-    if (vkAllocateMemory(ctx.Device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
-    {
-        throw std::runtime_error("failed to allocate vertex buffer memory!");
-    }
-
-    vkBindBufferMemory(ctx.Device, buffer, bufferMemory, 0);
-}
-
-void utils::CreateImage(VulkanContext &ctx, VkImage &image, VkDeviceMemory &imageMemory,
-                        CreateImageInfo info)
-{
-    VkImageCreateInfo imageInfo{};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = info.Width;
-    imageInfo.extent.height = info.Height;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = info.Format;
-    // Actual order of pixels in memory, not sampler tiling:
-    imageInfo.tiling = info.Tiling;
-    // Only other option is PREINITIALIZED:
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-
-    imageInfo.usage = info.Usage;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    // Multisampling, only relevant for attachments:
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.flags = 0;
-
-    if (vkCreateImage(ctx.Device, &imageInfo, nullptr, &image) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create image!");
-
-    VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(ctx.Device, image, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex =
-        utils::FindMemoryType(ctx, memRequirements.memoryTypeBits, info.Properties);
-
-    if (vkAllocateMemory(ctx.Device, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
-        throw std::runtime_error("Failed to allocate image memory!");
-
-    vkBindImageMemory(ctx.Device, image, imageMemory, 0);
-}
-
-VkImageView utils::CreateImageView(VulkanContext &ctx, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags)
+VkImageView utils::CreateImageView(VulkanContext &ctx, VkImage image, VkFormat format,
+                                   VkImageAspectFlags aspectFlags)
 {
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -289,17 +194,21 @@ void utils::CopyBufferToImage(VulkanContext &ctx, CopyBufferToImageInfo info)
     EndSingleTimeCommands(ctx, info.Queue, info.Pool, commandBuffer);
 }
 
-VkFormat utils::FindSupportedFormat(VulkanContext &ctx, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+VkFormat utils::FindSupportedFormat(VulkanContext &ctx,
+                                    const std::vector<VkFormat> &candidates,
+                                    VkImageTiling tiling, VkFormatFeatureFlags features)
 {
     for (VkFormat format : candidates)
     {
         VkFormatProperties props;
         vkGetPhysicalDeviceFormatProperties(ctx.PhysicalDevice, format, &props);
 
-        if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
+        if (tiling == VK_IMAGE_TILING_LINEAR &&
+            (props.linearTilingFeatures & features) == features)
             return format;
 
-        else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features)
+        else if (tiling == VK_IMAGE_TILING_OPTIMAL &&
+                 (props.optimalTilingFeatures & features) == features)
             return format;
     }
 
@@ -308,12 +217,15 @@ VkFormat utils::FindSupportedFormat(VulkanContext &ctx, const std::vector<VkForm
 
 VkFormat utils::FindDepthFormat(VulkanContext &ctx)
 {
-    std::vector<VkFormat> candidates{VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
+    std::vector<VkFormat> candidates{VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT,
+                                     VK_FORMAT_D24_UNORM_S8_UINT};
 
-    return FindSupportedFormat(ctx, candidates, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    return FindSupportedFormat(ctx, candidates, VK_IMAGE_TILING_OPTIMAL,
+                               VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
 bool utils::HasStencilComponent(VkFormat format)
 {
-    return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+    return format == VK_FORMAT_D32_SFLOAT_S8_UINT ||
+           format == VK_FORMAT_D24_UNORM_S8_UINT;
 }

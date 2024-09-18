@@ -21,8 +21,8 @@ struct RenderDataForImGui {
 */
 class RendererBase {
   public:
-    RendererBase(VulkanContext& context, std::function<void()> cb);
-    //Derived classes should call VulkanCleanup in their destructors!
+    RendererBase(VulkanContext &context, std::function<void()> cb);
+    // Derived classes should call VulkanCleanup in their destructors!
     virtual ~RendererBase() = default;
 
     void OnInit();
@@ -58,7 +58,7 @@ class RendererBase {
     void VulkanCleanup();
 
   protected:
-    VulkanContext& ctx;
+    VulkanContext &ctx;
     std::function<void()> callback;
 
     const size_t MAX_FRAMES_IN_FLIGHT = 2;

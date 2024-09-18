@@ -1,9 +1,9 @@
 #include "Application.h"
 
-#include "MainMenu.h"
 #include "HelloTriangle.h"
-#include "TexturedQuad.h"
+#include "MainMenu.h"
 #include "TexturedCube.h"
+#include "TexturedQuad.h"
 
 #include "imgui.h"
 
@@ -21,7 +21,7 @@ Application::~Application()
 
     m_ImGuiCtx.OnDestroy(m_Ctx);
 
-    //Destructors of renderer and ctx clean up the rest
+    // Destructors of renderer and ctx clean up the rest
 }
 
 void Application::Run()
@@ -75,8 +75,7 @@ void Application::RecreateRenderer(bool first_run)
         m_ImGuiCtx.OnDestroy(m_Ctx);
     }
 
-    auto go_back = [this]()
-    {
+    auto go_back = [this]() {
         if (ImGui::ArrowButton("Go back", static_cast<ImGuiDir>(0)))
         {
             m_RecreateRenderer = true;
@@ -89,8 +88,7 @@ void Application::RecreateRenderer(bool first_run)
         ImGui::Separator();
     };
 
-    auto menu = [this]()
-    {
+    auto menu = [this]() {
         auto size = ImVec2(ImGui::GetContentRegionAvail().x, 0.0f);
 
         if (ImGui::Button("Hello Triangle", size))
@@ -110,30 +108,26 @@ void Application::RecreateRenderer(bool first_run)
         }
     };
 
-    switch(m_RendererType)
+    switch (m_RendererType)
     {
-        //Note that destructors cleaning up vulkan resources are
-        //called automatically
-        case MainMenu:
-        {
-            m_Renderer = std::make_unique<MainMenuRenderer>(m_Ctx, menu);
-            break;
-        }
-        case HelloTraingle:
-        {
-            m_Renderer = std::make_unique<HelloTriangleRenderer>(m_Ctx, go_back);
-            break;
-        }
-        case TexturedQuad:
-        {
-            m_Renderer = std::make_unique<TexturedQuadRenderer>(m_Ctx, go_back);
-            break;
-        }
-        case TexturedCube:
-        {
-            m_Renderer = std::make_unique<TexturedCubeRenderer>(m_Ctx, go_back);
-            break;
-        }
+    // Note that destructors cleaning up vulkan resources are
+    // called automatically
+    case MainMenu: {
+        m_Renderer = std::make_unique<MainMenuRenderer>(m_Ctx, menu);
+        break;
+    }
+    case HelloTraingle: {
+        m_Renderer = std::make_unique<HelloTriangleRenderer>(m_Ctx, go_back);
+        break;
+    }
+    case TexturedQuad: {
+        m_Renderer = std::make_unique<TexturedQuadRenderer>(m_Ctx, go_back);
+        break;
+    }
+    case TexturedCube: {
+        m_Renderer = std::make_unique<TexturedCubeRenderer>(m_Ctx, go_back);
+        break;
+    }
     }
 
     m_Renderer->OnInit();

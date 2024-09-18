@@ -62,18 +62,14 @@ void HelloTriangleRenderer::CreateDependentResources()
 
 void HelloTriangleRenderer::DestroyResources()
 {
-    vkDestroyBuffer(ctx.Device, VertexBuffer, nullptr);
-    vkFreeMemory(ctx.Device, VertexBufferMemory, nullptr);
+    Buffer::DestroyBuffer(ctx, VertexBuffer);
 
     vkDestroyPipeline(ctx.Device, GraphicsPipeline, nullptr);
     vkDestroyPipelineLayout(ctx.Device, PipelineLayout, nullptr);
     vkDestroyRenderPass(ctx.Device, RenderPass, nullptr);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        vkDestroyBuffer(ctx.Device, UniformBuffers[i], nullptr);
-        vkFreeMemory(ctx.Device, UniformBuffersMemory[i], nullptr);
-    }
+        Buffer::DestroyBuffer(ctx, UniformBuffers[i]);
 
     vkDestroyDescriptorPool(ctx.Device, DescriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(ctx.Device, DescriptorSetLayout, nullptr);
@@ -147,7 +143,8 @@ void HelloTriangleRenderer::CreateRenderPasses()
     render_pass_info.dependencyCount = 1;
     render_pass_info.pDependencies = &dependency;
 
-    if (vkCreateRenderPass(ctx.Device, &render_pass_info, nullptr, &RenderPass) != VK_SUCCESS)
+    if (vkCreateRenderPass(ctx.Device, &render_pass_info, nullptr, &RenderPass) !=
+        VK_SUCCESS)
         throw std::runtime_error("Failed to create a render pass!");
 }
 
@@ -251,8 +248,8 @@ void HelloTriangleRenderer::CreateGraphicsPipelines()
     pipeline_layout_info.pSetLayouts = &DescriptorSetLayout;
     pipeline_layout_info.pushConstantRangeCount = 0;
 
-    if (vkCreatePipelineLayout(ctx.Device, &pipeline_layout_info, nullptr, &PipelineLayout) !=
-        VK_SUCCESS)
+    if (vkCreatePipelineLayout(ctx.Device, &pipeline_layout_info, nullptr,
+                               &PipelineLayout) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a pipeline layout!");
 
     std::vector<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT,
@@ -280,7 +277,7 @@ void HelloTriangleRenderer::CreateGraphicsPipelines()
     pipeline_info.basePipelineHandle = VK_NULL_HANDLE;
 
     if (vkCreateGraphicsPipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipeline_info, nullptr,
-                                         &GraphicsPipeline) != VK_SUCCESS)
+                                  &GraphicsPipeline) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a Graphics Pipeline!");
 
     vkDestroyShaderModule(ctx.Device, frag_module, nullptr);
@@ -304,8 +301,8 @@ void HelloTriangleRenderer::CreateFramebuffers()
         framebuffer_info.height = ctx.Swapchain.extent.height;
         framebuffer_info.layers = 1;
 
-        if (vkCreateFramebuffer(ctx.Device, &framebuffer_info, nullptr, &Framebuffers[i]) !=
-            VK_SUCCESS)
+        if (vkCreateFramebuffer(ctx.Device, &framebuffer_info, nullptr,
+                                &Framebuffers[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create a framebuffer!");
     }
 }
@@ -332,7 +329,8 @@ void HelloTriangleRenderer::CreateCommandBuffers()
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = (uint32_t)CommandBuffers.size();
 
-    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, CommandBuffers.data()) != VK_SUCCESS)
+    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, CommandBuffers.data()) !=
+        VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
@@ -361,7 +359,7 @@ void HelloTriangleRenderer::SubmitCommandBuffers()
     submitInfo.pSignalSemaphores = signal_semaphores;
 
     if (vkQueueSubmit(GraphicsQueue, 1, &submitInfo,
-                             InFlightFences[FrameSemaphoreIndex]) != VK_SUCCESS)
+                      InFlightFences[FrameSemaphoreIndex]) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to submit draw command buffer!");
     }
@@ -389,11 +387,10 @@ void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     render_pass_info.clearValueCount = 1;
     render_pass_info.pClearValues = &clearColor;
 
-    vkCmdBeginRenderPass(commandBuffer, &render_pass_info,
-                                VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(commandBuffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
     {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                 GraphicsPipeline);
+                          GraphicsPipeline);
 
         VkViewport viewport = {};
         viewport.x = 0.0f;
@@ -409,7 +406,7 @@ void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
         scissor.extent = ctx.Swapchain.extent;
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-        VkBuffer vertexBuffers[] = {VertexBuffer};
+        VkBuffer vertexBuffers[] = {VertexBuffer.Handle};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
@@ -443,41 +440,40 @@ void HelloTriangleRenderer::CreateVertexBuffers()
     VertexCount = vertices.size();
     VkDeviceSize bufferSize = VertexCount * sizeof(Vertex);
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    Buffer stagingBuffer;
 
     {
         VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
         VkMemoryPropertyFlags properties =
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-        utils::CreateBuffer(ctx, bufferSize, usage, properties, stagingBuffer,
-                            stagingBufferMemory);
+        stagingBuffer = Buffer::CreateBuffer(ctx, bufferSize, usage, properties);
     }
 
     void *data;
-    vkMapMemory(ctx.Device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(ctx.Device, stagingBuffer.Memory, 0, bufferSize, 0, &data);
     std::memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
-    vkUnmapMemory(ctx.Device, stagingBufferMemory);
+    vkUnmapMemory(ctx.Device, stagingBuffer.Memory);
 
     {
         VkBufferUsageFlags usage =
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
         VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        utils::CreateBuffer(ctx, bufferSize, usage, properties, VertexBuffer,
-                            VertexBufferMemory);
+
+        VertexBuffer = Buffer::CreateBuffer(ctx, bufferSize, usage, properties);
     }
 
-    utils::CopyBufferInfo cp_info{.Queue = GraphicsQueue,
-                                  .Pool = CommandPool,
-                                  .Src = stagingBuffer,
-                                  .Dst = VertexBuffer,
-                                  .Size = bufferSize};
+    utils::CopyBufferInfo cp_info{
+        .Queue = GraphicsQueue,
+        .Pool = CommandPool,
+        .Src = stagingBuffer.Handle,
+        .Dst = VertexBuffer.Handle,
+        .Size = bufferSize,
+    };
 
     utils::CopyBuffer(ctx, cp_info);
 
-    vkDestroyBuffer(ctx.Device, stagingBuffer, nullptr);
-    vkFreeMemory(ctx.Device, stagingBufferMemory, nullptr);
+    Buffer::DestroyBuffer(ctx, stagingBuffer);
 }
 
 void HelloTriangleRenderer::CreateUniformBuffers()
@@ -485,7 +481,6 @@ void HelloTriangleRenderer::CreateUniformBuffers()
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
     UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    UniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
     UniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -494,10 +489,9 @@ void HelloTriangleRenderer::CreateUniformBuffers()
         auto properties =
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-        utils::CreateBuffer(ctx, bufferSize, usage, properties, UniformBuffers[i],
-                            UniformBuffersMemory[i]);
+        UniformBuffers[i] = Buffer::CreateBuffer(ctx, bufferSize, usage, properties);
 
-        vkMapMemory(ctx.Device, UniformBuffersMemory[i], 0, bufferSize, 0,
+        vkMapMemory(ctx.Device, UniformBuffers[i].Memory, 0, bufferSize, 0,
                     &UniformBuffersMapped[i]);
     }
 }
@@ -556,7 +550,7 @@ void HelloTriangleRenderer::CreateDescriptorSets()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = UniformBuffers[i];
+        bufferInfo.buffer = UniformBuffers[i].Handle;
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 

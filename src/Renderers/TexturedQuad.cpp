@@ -71,24 +71,17 @@ void TexturedQuadRenderer::DestroyResources()
 {
     vkDestroySampler(ctx.Device, TextureSampler, nullptr);
     vkDestroyImageView(ctx.Device, TextureImageView, nullptr);
-    vkDestroyImage(ctx.Device, TextureImage, nullptr);
-    vkFreeMemory(ctx.Device, TextureImageMemory, nullptr);
+    Image::DestroyImage(ctx, TextureImage);
 
-    vkDestroyBuffer(ctx.Device, VertexBuffer, nullptr);
-    vkFreeMemory(ctx.Device, VertexBufferMemory, nullptr);
-
-    vkDestroyBuffer(ctx.Device, IndexBuffer, nullptr);
-    vkFreeMemory(ctx.Device, IndexBufferMemory, nullptr);
+    Buffer::DestroyBuffer(ctx, VertexBuffer);
+    Buffer::DestroyBuffer(ctx, IndexBuffer);
 
     vkDestroyPipeline(ctx.Device, GraphicsPipeline, nullptr);
     vkDestroyPipelineLayout(ctx.Device, PipelineLayout, nullptr);
     vkDestroyRenderPass(ctx.Device, RenderPass, nullptr);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        vkDestroyBuffer(ctx.Device, UniformBuffers[i], nullptr);
-        vkFreeMemory(ctx.Device, UniformBuffersMemory[i], nullptr);
-    }
+        Buffer::DestroyBuffer(ctx, UniformBuffers[i]);
 
     vkDestroyDescriptorPool(ctx.Device, DescriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(ctx.Device, DescriptorSetLayout, nullptr);
@@ -435,11 +428,11 @@ void TexturedQuadRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
         scissor.extent = ctx.Swapchain.extent;
         vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-        VkBuffer vertexBuffers[] = {VertexBuffer};
+        VkBuffer vertexBuffers[] = {VertexBuffer.Handle};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-        vkCmdBindIndexBuffer(commandBuffer, IndexBuffer, 0, VK_INDEX_TYPE_UINT16);
+        vkCmdBindIndexBuffer(commandBuffer, IndexBuffer.Handle, 0, VK_INDEX_TYPE_UINT16);
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 PipelineLayout, 0, 1,
@@ -470,41 +463,40 @@ void TexturedQuadRenderer::CreateVertexBuffers()
     VertexCount = vertices.size();
     VkDeviceSize bufferSize = VertexCount * sizeof(Vertex);
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    Buffer stagingBuffer;
 
     {
         VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
         VkMemoryPropertyFlags properties =
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-        utils::CreateBuffer(ctx, bufferSize, usage, properties, stagingBuffer,
-                            stagingBufferMemory);
+        stagingBuffer = Buffer::CreateBuffer(ctx, bufferSize, usage, properties);
     }
 
     void *data;
-    vkMapMemory(ctx.Device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(ctx.Device, stagingBuffer.Memory, 0, bufferSize, 0, &data);
     std::memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
-    vkUnmapMemory(ctx.Device, stagingBufferMemory);
+    vkUnmapMemory(ctx.Device, stagingBuffer.Memory);
 
     {
         VkBufferUsageFlags usage =
             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
         VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-        utils::CreateBuffer(ctx, bufferSize, usage, properties, VertexBuffer,
-                            VertexBufferMemory);
+
+        VertexBuffer = Buffer::CreateBuffer(ctx, bufferSize, usage, properties);
     }
 
-    utils::CopyBufferInfo cp_info{.Queue = GraphicsQueue,
-                                  .Pool = CommandPool,
-                                  .Src = stagingBuffer,
-                                  .Dst = VertexBuffer,
-                                  .Size = bufferSize};
+    utils::CopyBufferInfo cp_info{
+        .Queue = GraphicsQueue,
+        .Pool = CommandPool,
+        .Src = stagingBuffer.Handle,
+        .Dst = VertexBuffer.Handle,
+        .Size = bufferSize,
+    };
 
     utils::CopyBuffer(ctx, cp_info);
 
-    vkDestroyBuffer(ctx.Device, stagingBuffer, nullptr);
-    vkFreeMemory(ctx.Device, stagingBufferMemory, nullptr);
+    Buffer::DestroyBuffer(ctx, stagingBuffer);
 }
 
 void TexturedQuadRenderer::CreateIndexBuffers()
@@ -518,41 +510,39 @@ void TexturedQuadRenderer::CreateIndexBuffers()
     IndexCount = indices.size();
     VkDeviceSize bufferSize = sizeof(uint16_t) * IndexCount;
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    Buffer stagingBuffer;
 
     {
         auto usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
         auto properties =
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-        utils::CreateBuffer(ctx, bufferSize, usage, properties, stagingBuffer,
-                            stagingBufferMemory);
+        stagingBuffer = Buffer::CreateBuffer(ctx, bufferSize, usage, properties);
     }
 
     void *data;
-    vkMapMemory(ctx.Device, stagingBufferMemory, 0, bufferSize, 0, &data);
+    vkMapMemory(ctx.Device, stagingBuffer.Memory, 0, bufferSize, 0, &data);
     memcpy(data, indices.data(), static_cast<size_t>(bufferSize));
-    vkUnmapMemory(ctx.Device, stagingBufferMemory);
+    vkUnmapMemory(ctx.Device, stagingBuffer.Memory);
 
     {
         auto usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
         auto properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-        utils::CreateBuffer(ctx, bufferSize, usage, properties, IndexBuffer,
-                            IndexBufferMemory);
+        IndexBuffer = Buffer::CreateBuffer(ctx, bufferSize, usage, properties);
     }
 
-    utils::CopyBufferInfo cp_info{.Queue = GraphicsQueue,
-                                  .Pool = CommandPool,
-                                  .Src = stagingBuffer,
-                                  .Dst = IndexBuffer,
-                                  .Size = bufferSize};
+    utils::CopyBufferInfo cp_info{
+        .Queue = GraphicsQueue,
+        .Pool = CommandPool,
+        .Src = stagingBuffer.Handle,
+        .Dst = IndexBuffer.Handle,
+        .Size = bufferSize,
+    };
 
     utils::CopyBuffer(ctx, cp_info);
 
-    vkDestroyBuffer(ctx.Device, stagingBuffer, nullptr);
-    vkFreeMemory(ctx.Device, stagingBufferMemory, nullptr);
+    Buffer::DestroyBuffer(ctx, stagingBuffer);
 }
 
 void TexturedQuadRenderer::CreateUniformBuffers()
@@ -560,7 +550,6 @@ void TexturedQuadRenderer::CreateUniformBuffers()
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
     UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    UniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
     UniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -569,10 +558,9 @@ void TexturedQuadRenderer::CreateUniformBuffers()
         auto properties =
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-        utils::CreateBuffer(ctx, bufferSize, usage, properties, UniformBuffers[i],
-                            UniformBuffersMemory[i]);
+        UniformBuffers[i] = Buffer::CreateBuffer(ctx, bufferSize, usage, properties);
 
-        vkMapMemory(ctx.Device, UniformBuffersMemory[i], 0, bufferSize, 0,
+        vkMapMemory(ctx.Device, UniformBuffers[i].Memory, 0, bufferSize, 0,
                     &UniformBuffersMapped[i]);
     }
 }
@@ -633,7 +621,7 @@ void TexturedQuadRenderer::CreateDescriptorSets()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = UniformBuffers[i];
+        bufferInfo.buffer = UniformBuffers[i].Handle;
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
@@ -675,26 +663,25 @@ void TexturedQuadRenderer::CreateTextureImage()
     if (!pixels)
         throw std::runtime_error("Failed to load texture image!");
 
-    VkBuffer stagingBuffer;
-    VkDeviceMemory stagingBufferMemory;
+    Buffer stagingBuffer;
 
     {
         auto usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
         auto properties =
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-        utils::CreateBuffer(ctx, imageSize, usage, properties, stagingBuffer,
-                            stagingBufferMemory);
+
+        stagingBuffer = Buffer::CreateBuffer(ctx, imageSize, usage, properties);
     }
 
     void *data;
-    vkMapMemory(ctx.Device, stagingBufferMemory, 0, imageSize, 0, &data);
+    vkMapMemory(ctx.Device, stagingBuffer.Memory, 0, imageSize, 0, &data);
     memcpy(data, pixels, static_cast<size_t>(imageSize));
-    vkUnmapMemory(ctx.Device, stagingBufferMemory);
+    vkUnmapMemory(ctx.Device, stagingBuffer.Memory);
 
     stbi_image_free(pixels);
 
     {
-        utils::CreateImageInfo info{
+        ImageInfo info{
             .Width = static_cast<uint32_t>(texWidth),
             .Height = static_cast<uint32_t>(texHeight),
             .Format = VK_FORMAT_R8G8B8A8_SRGB,
@@ -703,14 +690,14 @@ void TexturedQuadRenderer::CreateTextureImage()
             .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         };
 
-        utils::CreateImage(ctx, TextureImage, TextureImageMemory, info);
+        TextureImage = Image::CreateImage(ctx, info);
     }
 
     {
         utils::TransitionImageLayoutInfo info{
             .Queue = GraphicsQueue,
             .Pool = CommandPool,
-            .Image = TextureImage,
+            .Image = TextureImage.Handle,
             .Format = VK_FORMAT_R8G8B8A8_SRGB,
             .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
             .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -723,8 +710,8 @@ void TexturedQuadRenderer::CreateTextureImage()
         utils::CopyBufferToImageInfo info{
             .Queue = GraphicsQueue,
             .Pool = CommandPool,
-            .Buffer = stagingBuffer,
-            .Image = TextureImage,
+            .Buffer = stagingBuffer.Handle,
+            .Image = TextureImage.Handle,
             .Width = static_cast<uint32_t>(texWidth),
             .Height = static_cast<uint32_t>(texHeight),
         };
@@ -736,7 +723,7 @@ void TexturedQuadRenderer::CreateTextureImage()
         utils::TransitionImageLayoutInfo info{
             .Queue = GraphicsQueue,
             .Pool = CommandPool,
-            .Image = TextureImage,
+            .Image = TextureImage.Handle,
             .Format = VK_FORMAT_R8G8B8A8_SRGB,
             .OldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -745,13 +732,12 @@ void TexturedQuadRenderer::CreateTextureImage()
         utils::TransitionImageLayout(ctx, info);
     }
 
-    vkDestroyBuffer(ctx.Device, stagingBuffer, nullptr);
-    vkFreeMemory(ctx.Device, stagingBufferMemory, nullptr);
+    Buffer::DestroyBuffer(ctx, stagingBuffer);
 }
 
 void TexturedQuadRenderer::CreateTextureImageView()
 {
-    TextureImageView = utils::CreateImageView(ctx, TextureImage, VK_FORMAT_R8G8B8A8_SRGB);
+    TextureImageView = utils::CreateImageView(ctx, TextureImage.Handle, VK_FORMAT_R8G8B8A8_SRGB);
 }
 
 void TexturedQuadRenderer::CreateTextureSampler()

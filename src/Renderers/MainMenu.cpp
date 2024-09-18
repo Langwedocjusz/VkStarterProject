@@ -26,7 +26,6 @@ void MainMenuRenderer::CreateSwapchainResources()
 
 void MainMenuRenderer::CreateDependentResources()
 {
-
 }
 
 void MainMenuRenderer::DestroyResources()
@@ -82,7 +81,8 @@ void MainMenuRenderer::CreateRenderPasses()
     render_pass_info.dependencyCount = 1;
     render_pass_info.pDependencies = &dependency;
 
-    if (vkCreateRenderPass(ctx.Device, &render_pass_info, nullptr, &RenderPass) != VK_SUCCESS)
+    if (vkCreateRenderPass(ctx.Device, &render_pass_info, nullptr, &RenderPass) !=
+        VK_SUCCESS)
         throw std::runtime_error("Failed to create a render pass!");
 }
 
@@ -103,8 +103,8 @@ void MainMenuRenderer::CreateFramebuffers()
         framebuffer_info.height = ctx.Swapchain.extent.height;
         framebuffer_info.layers = 1;
 
-        if (vkCreateFramebuffer(ctx.Device, &framebuffer_info, nullptr, &Framebuffers[i]) !=
-            VK_SUCCESS)
+        if (vkCreateFramebuffer(ctx.Device, &framebuffer_info, nullptr,
+                                &Framebuffers[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create a framebuffer!");
     }
 }
@@ -131,7 +131,8 @@ void MainMenuRenderer::CreateCommandBuffers()
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     allocInfo.commandBufferCount = (uint32_t)CommandBuffers.size();
 
-    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, CommandBuffers.data()) != VK_SUCCESS)
+    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, CommandBuffers.data()) !=
+        VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
@@ -160,14 +161,14 @@ void MainMenuRenderer::SubmitCommandBuffers()
     submitInfo.pSignalSemaphores = signal_semaphores;
 
     if (vkQueueSubmit(GraphicsQueue, 1, &submitInfo,
-                             InFlightFences[FrameSemaphoreIndex]) != VK_SUCCESS)
+                      InFlightFences[FrameSemaphoreIndex]) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to submit draw command buffer!");
     }
 }
 
 void MainMenuRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
-                                                uint32_t imageIndex)
+                                           uint32_t imageIndex)
 {
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -186,8 +187,7 @@ void MainMenuRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     render_pass_info.clearValueCount = 1;
     render_pass_info.pClearValues = &clearColor;
 
-    vkCmdBeginRenderPass(commandBuffer, &render_pass_info,
-                                VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBeginRenderPass(commandBuffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
     {
         VkViewport viewport = {};
         viewport.x = 0.0f;

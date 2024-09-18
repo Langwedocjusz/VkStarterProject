@@ -15,14 +15,19 @@ class Application {
     void Run();
 
     void OnResize(uint32_t width, uint32_t height);
-private:
+
+  private:
     void RecreateRenderer(bool first_run = false);
 
   private:
     VulkanContext m_Ctx;
 
-    enum class SupportedRenderer{
-        MainMenu, HelloTraingle, TexturedQuad, TexturedCube
+    enum class SupportedRenderer
+    {
+        MainMenu,
+        HelloTraingle,
+        TexturedQuad,
+        TexturedCube
     };
 
     SupportedRenderer m_RendererType = SupportedRenderer::MainMenu;
