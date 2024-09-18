@@ -68,8 +68,8 @@ void HelloTriangleRenderer::DestroyResources()
     vkDestroyPipelineLayout(ctx.Device, PipelineLayout, nullptr);
     vkDestroyRenderPass(ctx.Device, RenderPass, nullptr);
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-        Buffer::DestroyBuffer(ctx, UniformBuffers[i]);
+    for (auto& uniformBuffer : UniformBuffers)
+        uniformBuffer.OnDestroy(ctx);
 
     vkDestroyDescriptorPool(ctx.Device, DescriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(ctx.Device, DescriptorSetLayout, nullptr);
@@ -438,42 +438,17 @@ void HelloTriangleRenderer::CreateVertexBuffers()
     // clang-format on
 
     VertexCount = vertices.size();
-    VkDeviceSize bufferSize = VertexCount * sizeof(Vertex);
 
-    Buffer stagingBuffer;
-
-    {
-        VkBufferUsageFlags usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-        VkMemoryPropertyFlags properties =
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-        stagingBuffer = Buffer::CreateBuffer(ctx, bufferSize, usage, properties);
-    }
-
-    void *data;
-    vkMapMemory(ctx.Device, stagingBuffer.Memory, 0, bufferSize, 0, &data);
-    std::memcpy(data, vertices.data(), static_cast<size_t>(bufferSize));
-    vkUnmapMemory(ctx.Device, stagingBuffer.Memory);
-
-    {
-        VkBufferUsageFlags usage =
-            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-        VkMemoryPropertyFlags properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-
-        VertexBuffer = Buffer::CreateBuffer(ctx, bufferSize, usage, properties);
-    }
-
-    utils::CopyBufferInfo cp_info{
+    GPUBufferInfo info{
         .Queue = GraphicsQueue,
         .Pool = CommandPool,
-        .Src = stagingBuffer.Handle,
-        .Dst = VertexBuffer.Handle,
-        .Size = bufferSize,
+        .Data = vertices.data(),
+        .Size = VertexCount * sizeof(Vertex),
+        .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+        .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     };
 
-    utils::CopyBuffer(ctx, cp_info);
-
-    Buffer::DestroyBuffer(ctx, stagingBuffer);
+    VertexBuffer = Buffer::CreateGPUBuffer(ctx, info);
 }
 
 void HelloTriangleRenderer::CreateUniformBuffers()
@@ -481,19 +456,9 @@ void HelloTriangleRenderer::CreateUniformBuffers()
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
     UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-    UniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        auto usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-        auto properties =
-            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-
-        UniformBuffers[i] = Buffer::CreateBuffer(ctx, bufferSize, usage, properties);
-
-        vkMapMemory(ctx.Device, UniformBuffers[i].Memory, 0, bufferSize, 0,
-                    &UniformBuffersMapped[i]);
-    }
+    for (auto& uniformBuffer : UniformBuffers)
+        uniformBuffer.OnInit(ctx, bufferSize);
 }
 
 void HelloTriangleRenderer::UpdateUniformBuffer()
@@ -512,7 +477,8 @@ void HelloTriangleRenderer::UpdateUniformBuffer()
 
     UBOData.MVP = proj;
 
-    std::memcpy(UniformBuffersMapped[FrameSemaphoreIndex], &UBOData, sizeof(UBOData));
+    auto& uniformBuffer = UniformBuffers[FrameSemaphoreIndex];
+    uniformBuffer.UploadData(&UBOData, sizeof(UBOData));
 }
 
 void HelloTriangleRenderer::CreateDescriptorPool()
@@ -550,7 +516,7 @@ void HelloTriangleRenderer::CreateDescriptorSets()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = UniformBuffers[i].Handle;
+        bufferInfo.buffer = UniformBuffers[i].Handle();
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 

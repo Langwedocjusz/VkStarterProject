@@ -60,3 +60,70 @@ void Buffer::DestroyBuffer(VulkanContext &ctx, Buffer &buf)
     vkDestroyBuffer(ctx.Device, buf.Handle, nullptr);
     vkFreeMemory(ctx.Device, buf.Memory, nullptr);
 }
+
+void Buffer::UploadToBuffer(VulkanContext &ctx, Buffer buff, const void *data,
+                            VkDeviceSize size)
+{
+    void *dst;
+    vkMapMemory(ctx.Device, buff.Memory, 0, size, 0, &dst);
+    std::memcpy(dst, data, static_cast<size_t>(size));
+    vkUnmapMemory(ctx.Device, buff.Memory);
+}
+
+Buffer Buffer::CreateStagingBuffer(VulkanContext &ctx, VkDeviceSize size)
+{
+    auto usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    auto properties =
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    return CreateBuffer(ctx, size, usage, properties);
+}
+
+Buffer Buffer::CreateMappedUniformBuffer(VulkanContext &ctx, VkDeviceSize size)
+{
+    auto usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    auto properties =
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+
+    return CreateBuffer(ctx, size, usage, properties);
+}
+
+Buffer Buffer::CreateGPUBuffer(VulkanContext &ctx, GPUBufferInfo info)
+{
+    Buffer buff;
+    buff = CreateBuffer(ctx, info.Size, info.Usage, info.Properties);
+
+    Buffer stagingBuffer = Buffer::CreateStagingBuffer(ctx, info.Size);
+    UploadToBuffer(ctx, stagingBuffer, info.Data, info.Size);
+
+    utils::CopyBufferInfo cp_info{
+        .Queue = info.Queue,
+        .Pool = info.Pool,
+        .Src = stagingBuffer.Handle,
+        .Dst = buff.Handle,
+        .Size = info.Size,
+    };
+
+    utils::CopyBuffer(ctx, cp_info);
+
+    DestroyBuffer(ctx, stagingBuffer);
+
+    return buff;
+}
+
+
+void MappedUniformBuffer::OnInit(VulkanContext &ctx, VkDeviceSize size)
+{
+    mBuffer = Buffer::CreateMappedUniformBuffer(ctx, size);
+    vkMapMemory(ctx.Device, mBuffer.Memory, 0, size, 0, &mData);
+}
+
+void MappedUniformBuffer::OnDestroy(VulkanContext &ctx)
+{
+    Buffer::DestroyBuffer(ctx, mBuffer);
+}
+
+void MappedUniformBuffer::UploadData(const void* data, size_t size)
+{
+    std::memcpy(mData, data, size);
+}

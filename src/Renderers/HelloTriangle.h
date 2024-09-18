@@ -78,8 +78,7 @@ class HelloTriangleRenderer : public RendererBase {
     Buffer VertexBuffer;
     size_t VertexCount;
 
-    std::vector<Buffer> UniformBuffers;
-    std::vector<void *> UniformBuffersMapped;
+    std::vector<MappedUniformBuffer> UniformBuffers;
 
     struct UniformBufferObject {
         glm::mat4 MVP = glm::mat4(1.0f);
