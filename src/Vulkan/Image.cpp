@@ -1,8 +1,11 @@
 #include "Image.h"
 
+#include "Utils.h"
+
 Image Image::CreateImage(VulkanContext &ctx, ImageInfo info)
 {
     Image img;
+    img.Info = info;
 
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -49,4 +52,40 @@ void Image::DestroyImage(VulkanContext &ctx, Image &img)
 {
     vkDestroyImage(ctx.Device, img.Handle, nullptr);
     vkFreeMemory(ctx.Device, img.Memory, nullptr);
+}
+
+void Image::UploadToImage(VulkanContext &ctx, Image& img, ImageDataInfo info)
+{
+    Buffer stagingBuffer = Buffer::CreateStagingBuffer(ctx, info.Size);
+
+    Buffer::UploadToBuffer(ctx, stagingBuffer, info.Data, info.Size);
+
+    utils::TransitionImageLayoutInfo trInfo{
+        .Queue = info.Queue,
+        .Pool = info.Pool,
+        .Image = img.Handle,
+        .Format = img.Info.Format,
+        .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+        .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    };
+
+    utils::TransitionImageLayout(ctx, trInfo);
+
+    utils::CopyBufferToImageInfo cpInfo{
+        .Queue = info.Queue,
+        .Pool = info.Pool,
+        .Buffer = stagingBuffer.Handle,
+        .Image = img.Handle,
+        .Width = img.Info.Width,
+        .Height = img.Info.Height,
+    };
+
+    utils::CopyBufferToImage(ctx, cpInfo);
+
+    trInfo.OldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    trInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    utils::TransitionImageLayout(ctx, trInfo);
+
+    Buffer::DestroyBuffer(ctx, stagingBuffer);
 }

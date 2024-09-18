@@ -2,12 +2,12 @@
 
 #include "Utils.h"
 
+#include "ImageLoaders.h"
+
 #include "ImGuiContext.h"
 #include "imgui.h"
 
 #include <glm/gtc/matrix_transform.hpp>
-
-#include <stb_image.h>
 
 #include <array>
 
@@ -668,73 +668,13 @@ void TexturedCubeRenderer::CreateDescriptorSets()
 
 void TexturedCubeRenderer::CreateTextureImage()
 {
-    int texWidth, texHeight, texChannels;
-    stbi_uc *pixels = stbi_load("assets/textures/container.jpg", &texWidth, &texHeight,
-                                &texChannels, STBI_rgb_alpha);
-    VkDeviceSize imageSize = texWidth * texHeight * 4;
+    ImageLoaderInfo info{
+        .Queue = GraphicsQueue,
+        .Pool = CommandPool,
+        .Filepath = "assets/textures/container.jpg",
+    };
 
-    if (!pixels)
-        throw std::runtime_error("Failed to load texture image!");
-
-    Buffer stagingBuffer = Buffer::CreateStagingBuffer(ctx, imageSize);
-
-    Buffer::UploadToBuffer(ctx, stagingBuffer, pixels, imageSize);
-
-    stbi_image_free(pixels);
-
-    {
-        ImageInfo info{
-            .Width = static_cast<uint32_t>(texWidth),
-            .Height = static_cast<uint32_t>(texHeight),
-            .Format = VK_FORMAT_R8G8B8A8_SRGB,
-            .Tiling = VK_IMAGE_TILING_OPTIMAL,
-            .Usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        };
-
-        TextureImage = Image::CreateImage(ctx, info);
-    }
-
-    {
-        utils::TransitionImageLayoutInfo info{
-            .Queue = GraphicsQueue,
-            .Pool = CommandPool,
-            .Image = TextureImage.Handle,
-            .Format = VK_FORMAT_R8G8B8A8_SRGB,
-            .OldLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        };
-
-        utils::TransitionImageLayout(ctx, info);
-    }
-
-    {
-        utils::CopyBufferToImageInfo info{
-            .Queue = GraphicsQueue,
-            .Pool = CommandPool,
-            .Buffer = stagingBuffer.Handle,
-            .Image = TextureImage.Handle,
-            .Width = static_cast<uint32_t>(texWidth),
-            .Height = static_cast<uint32_t>(texHeight),
-        };
-
-        utils::CopyBufferToImage(ctx, info);
-    }
-
-    {
-        utils::TransitionImageLayoutInfo info{
-            .Queue = GraphicsQueue,
-            .Pool = CommandPool,
-            .Image = TextureImage.Handle,
-            .Format = VK_FORMAT_R8G8B8A8_SRGB,
-            .OldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            .NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        };
-
-        utils::TransitionImageLayout(ctx, info);
-    }
-
-    Buffer::DestroyBuffer(ctx, stagingBuffer);
+    TextureImage = ImageLoaders::LoadImage2D(ctx, info);
 }
 
 void TexturedCubeRenderer::CreateTextureImageView()
