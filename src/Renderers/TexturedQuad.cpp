@@ -3,6 +3,7 @@
 #include "Utils.h"
 
 #include "ImageLoaders.h"
+#include "Shader.h"
 
 #include "ImGuiContext.h"
 #include "imgui.h"
@@ -10,15 +11,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <array>
-
-VkVertexInputBindingDescription TexturedQuadRenderer::Vertex::getBindingDescription()
-{
-    VkVertexInputBindingDescription bindingDescription{};
-    bindingDescription.binding = 0;
-    bindingDescription.stride = sizeof(Vertex);
-    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    return bindingDescription;
-}
 
 std::vector<VkVertexInputAttributeDescription> TexturedQuadRenderer::Vertex::
     getAttributeDescriptions()
@@ -79,7 +71,7 @@ void TexturedQuadRenderer::DestroyResources()
     vkDestroyPipelineLayout(ctx.Device, GraphicsPipeline.Layout, nullptr);
     vkDestroyRenderPass(ctx.Device, RenderPass, nullptr);
 
-    for (auto& uniformBuffer : UniformBuffers)
+    for (auto &uniformBuffer : UniformBuffers)
         uniformBuffer.OnDestroy(ctx);
 
     vkDestroyDescriptorPool(ctx.Device, DescriptorPool, nullptr);
@@ -171,44 +163,23 @@ void TexturedQuadRenderer::CreateRenderPasses()
 
 void TexturedQuadRenderer::CreateGraphicsPipelines()
 {
-    // Graphics pipeline:
-    auto vert_code = utils::ReadFileBinary("assets/spirv/TexturedQuadVert.spv");
-    auto frag_code = utils::ReadFileBinary("assets/spirv/TexturedQuadFrag.spv");
+    auto shaderStages = ShaderBuilder()
+                            .SetVertexPath("assets/spirv/TexturedQuadVert.spv")
+                            .SetFragmentPath("assets/spirv/TexturedQuadFrag.spv")
+                            .Build(ctx);
 
-    VkShaderModule vert_module = utils::CreateShaderModule(ctx, vert_code);
-    VkShaderModule frag_module = utils::CreateShaderModule(ctx, frag_code);
-
-    if (vert_module == VK_NULL_HANDLE || frag_module == VK_NULL_HANDLE)
-        throw std::runtime_error("Failed to create a shader module!");
-
-    VkPipelineShaderStageCreateInfo vert_stage_info = {};
-    vert_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vert_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vert_stage_info.module = vert_module;
-    vert_stage_info.pName = "main";
-
-    VkPipelineShaderStageCreateInfo frag_stage_info = {};
-    frag_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    frag_stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    frag_stage_info.module = frag_module;
-    frag_stage_info.pName = "main";
-
-    std::vector<VkPipelineShaderStageCreateInfo> shaderStages{
-        vert_stage_info, frag_stage_info
-    };
-
-    // Vertex Input setup:
-    auto bindingDescription = Vertex::getBindingDescription();
+    auto bindingDescription =
+        utils::GetBindingDescription<Vertex>(0, VK_VERTEX_INPUT_RATE_VERTEX);
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
     GraphicsPipeline = PipelineBuilder()
-        .SetShaderStages(shaderStages)
-        .SetVertexInput(bindingDescription, attributeDescriptions)
-        .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-        .SetPolygonMode(VK_POLYGON_MODE_FILL)
-        .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
-        .DisableDepthTest()
-        .Build(ctx, RenderPass, DescriptorSetLayout);
+                           .SetShaderStages(shaderStages)
+                           .SetVertexInput(bindingDescription, attributeDescriptions)
+                           .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+                           .SetPolygonMode(VK_POLYGON_MODE_FILL)
+                           .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
+                           .DisableDepthTest()
+                           .Build(ctx, RenderPass, DescriptorSetLayout);
 }
 
 void TexturedQuadRenderer::CreateFramebuffers()
@@ -407,7 +378,7 @@ void TexturedQuadRenderer::CreateUniformBuffers()
 
     UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
-    for (auto& uniformBuffer : UniformBuffers)
+    for (auto &uniformBuffer : UniformBuffers)
         uniformBuffer.OnInit(ctx, bufferSize);
 }
 
@@ -427,7 +398,7 @@ void TexturedQuadRenderer::UpdateUniformBuffer()
 
     UBOData.MVP = proj;
 
-    auto& uniformBuffer = UniformBuffers[FrameSemaphoreIndex];
+    auto &uniformBuffer = UniformBuffers[FrameSemaphoreIndex];
     uniformBuffer.UploadData(&UBOData, sizeof(UBOData));
 }
 

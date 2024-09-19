@@ -17,7 +17,7 @@ PipelineBuilder::PipelineBuilder()
     mColorBlend.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     mDepthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 
-    //Things that are hardcoded for now:
+    // Things that are hardcoded for now:
     mInputAssembly.primitiveRestartEnable = VK_FALSE;
 
     mRaster.depthClampEnable = VK_FALSE;
@@ -44,8 +44,8 @@ PipelineBuilder::PipelineBuilder()
 }
 
 PipelineBuilder PipelineBuilder::SetVertexInput(
-        VkVertexInputBindingDescription &bindingDescription,
-        std::vector<VkVertexInputAttributeDescription>& attributeDescriptions)
+    VkVertexInputBindingDescription &bindingDescription,
+    std::vector<VkVertexInputAttributeDescription> &attributeDescriptions)
 {
     mVertexInput.vertexBindingDescriptionCount = 1;
     mVertexInput.pVertexBindingDescriptions = &bindingDescription;
@@ -69,7 +69,8 @@ PipelineBuilder PipelineBuilder::SetPolygonMode(VkPolygonMode mode)
     return *this;
 }
 
-PipelineBuilder PipelineBuilder::SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace)
+PipelineBuilder PipelineBuilder::SetCullMode(VkCullModeFlags cullMode,
+                                             VkFrontFace frontFace)
 {
     mRaster.cullMode = cullMode;
     mRaster.frontFace = frontFace;
@@ -97,11 +98,12 @@ PipelineBuilder PipelineBuilder::EnableDepthTest()
     return *this;
 }
 
-Pipeline PipelineBuilder::Build(VulkanContext& ctx, VkRenderPass renderPass, VkDescriptorSetLayout& descriptor)
+Pipeline PipelineBuilder::Build(VulkanContext &ctx, VkRenderPass renderPass,
+                                VkDescriptorSetLayout &descriptor)
 {
     Pipeline pipeline;
 
-    //Layout
+    // Layout
     VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;
@@ -112,7 +114,7 @@ Pipeline PipelineBuilder::Build(VulkanContext& ctx, VkRenderPass renderPass, VkD
                                &pipeline.Layout) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a pipeline layout!");
 
-    //Dynamic state
+    // Dynamic state
     VkViewport viewport = {};
     viewport.x = 0.0f;
     viewport.y = 0.0f;
@@ -133,14 +135,14 @@ Pipeline PipelineBuilder::Build(VulkanContext& ctx, VkRenderPass renderPass, VkD
     viewport_state.pScissors = &scissor;
 
     std::vector<VkDynamicState> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT,
-                                                  VK_DYNAMIC_STATE_SCISSOR};
+                                                 VK_DYNAMIC_STATE_SCISSOR};
 
     VkPipelineDynamicStateCreateInfo dynamicInfo = {};
     dynamicInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamicInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicInfo.pDynamicStates = dynamicStates.data();
 
-    //Pipeline creation
+    // Pipeline creation
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.stageCount = static_cast<uint32_t>(mShaderStages.size());
@@ -162,7 +164,7 @@ Pipeline PipelineBuilder::Build(VulkanContext& ctx, VkRenderPass renderPass, VkD
                                   &pipeline.Handle) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a Graphics Pipeline!");
 
-    for (auto& shaderInfo : mShaderStages)
+    for (auto &shaderInfo : mShaderStages)
         vkDestroyShaderModule(ctx.Device, shaderInfo.module, nullptr);
 
     return pipeline;

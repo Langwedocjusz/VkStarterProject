@@ -35,17 +35,21 @@ class Buffer {
     VkDeviceMemory Memory;
 };
 
-class MappedUniformBuffer{
-public:
+class MappedUniformBuffer {
+  public:
     MappedUniformBuffer() = default;
 
     void OnInit(VulkanContext &ctx, VkDeviceSize size);
     void OnDestroy(VulkanContext &ctx);
 
-    void UploadData(const void* data, size_t size);
+    void UploadData(const void *data, size_t size);
 
-    VkBuffer Handle() const {return mBuffer.Handle;}
-private:
+    VkBuffer Handle() const
+    {
+        return mBuffer.Handle;
+    }
+
+  private:
     Buffer mBuffer;
-    void* mData = nullptr;
+    void *mData = nullptr;
 };

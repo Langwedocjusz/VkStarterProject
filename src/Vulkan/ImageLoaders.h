@@ -4,12 +4,13 @@
 
 #include <string>
 
-struct ImageLoaderInfo{
+struct ImageLoaderInfo {
     VkQueue Queue;
     VkCommandPool Pool;
     std::string Filepath;
 };
 
-namespace ImageLoaders{
-    Image LoadImage2D(VulkanContext& ctx, ImageLoaderInfo& info);
+namespace ImageLoaders
+{
+Image LoadImage2D(VulkanContext &ctx, ImageLoaderInfo &info);
 }

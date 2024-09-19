@@ -4,24 +4,25 @@
 
 #include <vector>
 
-struct Pipeline{
+struct Pipeline {
     VkPipeline Handle;
     VkPipelineLayout Layout;
 };
 
-class PipelineBuilder{
-public:
+class PipelineBuilder {
+  public:
     PipelineBuilder();
 
-    //Temporary hack
+    // Temporary hack
     PipelineBuilder SetShaderStages(std::vector<VkPipelineShaderStageCreateInfo> stages)
     {
         mShaderStages = stages;
         return *this;
     }
 
-    PipelineBuilder SetVertexInput(VkVertexInputBindingDescription& bindingDescription,
-        std::vector<VkVertexInputAttributeDescription>& attributeDescriptions);
+    PipelineBuilder SetVertexInput(
+        VkVertexInputBindingDescription &bindingDescription,
+        std::vector<VkVertexInputAttributeDescription> &attributeDescriptions);
     PipelineBuilder SetTopology(VkPrimitiveTopology topo);
     PipelineBuilder SetPolygonMode(VkPolygonMode mode);
     PipelineBuilder SetCullMode(VkCullModeFlags cullMode, VkFrontFace frontFace);
@@ -29,9 +30,10 @@ public:
     PipelineBuilder DisableDepthTest();
     PipelineBuilder EnableDepthTest();
 
-    Pipeline Build(VulkanContext& ctx, VkRenderPass renderPass, VkDescriptorSetLayout& descriptor);
+    Pipeline Build(VulkanContext &ctx, VkRenderPass renderPass,
+                   VkDescriptorSetLayout &descriptor);
 
-private:
+  private:
     std::vector<VkPipelineShaderStageCreateInfo> mShaderStages;
 
     VkPipelineVertexInputStateCreateInfo mVertexInput;

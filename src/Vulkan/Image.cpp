@@ -54,7 +54,7 @@ void Image::DestroyImage(VulkanContext &ctx, Image &img)
     vkFreeMemory(ctx.Device, img.Memory, nullptr);
 }
 
-void Image::UploadToImage(VulkanContext &ctx, Image& img, ImageDataInfo info)
+void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageDataInfo info)
 {
     Buffer stagingBuffer = Buffer::CreateStagingBuffer(ctx, info.Size);
 

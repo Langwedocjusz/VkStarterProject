@@ -7,9 +7,16 @@
 
 namespace utils
 {
-std::vector<char> ReadFileBinary(const std::string &filename);
-
-VkShaderModule CreateShaderModule(VulkanContext &ctx, const std::vector<char> &code);
+template <typename VertexType>
+VkVertexInputBindingDescription GetBindingDescription(uint32_t binding,
+                                                      VkVertexInputRate inputRate)
+{
+    VkVertexInputBindingDescription bindingDescription{};
+    bindingDescription.binding = binding;
+    bindingDescription.stride = sizeof(VertexType);
+    bindingDescription.inputRate = inputRate;
+    return bindingDescription;
+}
 
 VkImageView CreateImageView(VulkanContext &ctx, VkImage image, VkFormat format,
                             VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT);

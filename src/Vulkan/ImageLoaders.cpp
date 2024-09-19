@@ -3,7 +3,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-Image ImageLoaders::LoadImage2D(VulkanContext& ctx, ImageLoaderInfo& info)
+Image ImageLoaders::LoadImage2D(VulkanContext &ctx, ImageLoaderInfo &info)
 {
     int texWidth, texHeight, texChannels;
     stbi_uc *pixels = stbi_load(info.Filepath.c_str(), &texWidth, &texHeight,
@@ -25,7 +25,7 @@ Image ImageLoaders::LoadImage2D(VulkanContext& ctx, ImageLoaderInfo& info)
 
     Image img = Image::CreateImage(ctx, img_info);
 
-    ImageDataInfo data_info {
+    ImageDataInfo data_info{
         .Queue = info.Queue,
         .Pool = info.Pool,
         .Data = pixels,

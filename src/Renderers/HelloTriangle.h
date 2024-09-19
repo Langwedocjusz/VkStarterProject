@@ -70,7 +70,6 @@ class HelloTriangleRenderer : public RendererBase {
         glm::vec2 Pos;
         glm::vec3 Color;
 
-        static VkVertexInputBindingDescription getBindingDescription();
         static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
     };
 

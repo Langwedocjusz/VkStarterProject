@@ -111,7 +111,6 @@ Buffer Buffer::CreateGPUBuffer(VulkanContext &ctx, GPUBufferInfo info)
     return buff;
 }
 
-
 void MappedUniformBuffer::OnInit(VulkanContext &ctx, VkDeviceSize size)
 {
     mBuffer = Buffer::CreateMappedUniformBuffer(ctx, size);
@@ -123,7 +122,7 @@ void MappedUniformBuffer::OnDestroy(VulkanContext &ctx)
     Buffer::DestroyBuffer(ctx, mBuffer);
 }
 
-void MappedUniformBuffer::UploadData(const void* data, size_t size)
+void MappedUniformBuffer::UploadData(const void *data, size_t size)
 {
     std::memcpy(mData, data, size);
 }

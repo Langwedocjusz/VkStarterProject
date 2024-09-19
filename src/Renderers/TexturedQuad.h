@@ -76,7 +76,6 @@ class TexturedQuadRenderer : public RendererBase {
         glm::vec2 Pos;
         glm::vec2 TexCoord;
 
-        static VkVertexInputBindingDescription getBindingDescription();
         static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
     };
 

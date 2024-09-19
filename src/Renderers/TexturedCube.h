@@ -69,8 +69,8 @@ class TexturedCubeRenderer : public RendererBase {
     VkDescriptorPool DescriptorPool;
     std::vector<VkDescriptorSet> DescriptorSets;
 
-    //VkPipelineLayout PipelineLayout;
-    //VkPipeline GraphicsPipeline;
+    // VkPipelineLayout PipelineLayout;
+    // VkPipeline GraphicsPipeline;
 
     Pipeline GraphicsPipeline;
 
@@ -81,9 +81,7 @@ class TexturedCubeRenderer : public RendererBase {
         glm::vec3 Pos;
         glm::vec2 TexCoord;
 
-        static VkVertexInputBindingDescription getBindingDescription();
-        static std::vector<VkVertexInputAttributeDescription>
-        getAttributeDescriptions();
+        static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
     };
 
     Buffer VertexBuffer;
