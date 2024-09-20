@@ -1,5 +1,7 @@
 #include "Pipeline.h"
 
+#include <iostream>
+
 PipelineBuilder::PipelineBuilder()
 {
     mVertexInput = {};
@@ -98,8 +100,20 @@ PipelineBuilder PipelineBuilder::EnableDepthTest()
     return *this;
 }
 
-Pipeline PipelineBuilder::Build(VulkanContext &ctx, VkRenderPass renderPass,
-                                VkDescriptorSetLayout &descriptor)
+PipelineBuilder PipelineBuilder::SetSwapchainColorFormat(VkFormat format)
+{
+    mSwapchainColorFormat = format;
+    return *this;
+}
+
+PipelineBuilder PipelineBuilder::SetDepthFormat(VkFormat format)
+{
+    mDepthFormat = format;
+    mDepthFormatProvided = true;
+    return *this;
+}
+
+Pipeline PipelineBuilder::Build(VulkanContext &ctx, VkDescriptorSetLayout &descriptor)
 {
     Pipeline pipeline;
 
@@ -142,6 +156,20 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx, VkRenderPass renderPass,
     dynamicInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
     dynamicInfo.pDynamicStates = dynamicStates.data();
 
+    // New create info to define color, depth and stencil attachments at pipeline create
+    // time
+    VkPipelineRenderingCreateInfoKHR pipelineRenderingCreateInfo{};
+    pipelineRenderingCreateInfo.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
+    pipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    pipelineRenderingCreateInfo.pColorAttachmentFormats = &mSwapchainColorFormat;
+
+    if (mDepthFormatProvided)
+    {
+        pipelineRenderingCreateInfo.depthAttachmentFormat = mDepthFormat;
+        // pipelineRenderingCreateInfo.stencilAttachmentFormat = mDepthStencilFormat;
+    }
+
     // Pipeline creation
     VkGraphicsPipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -156,9 +184,10 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx, VkRenderPass renderPass,
     pipelineInfo.pDepthStencilState = &mDepthStencil;
     pipelineInfo.pDynamicState = &dynamicInfo;
     pipelineInfo.layout = pipeline.Layout;
-    pipelineInfo.renderPass = renderPass;
     pipelineInfo.subpass = 0;
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+    // Chain into the pipeline create info
+    pipelineInfo.pNext = &pipelineRenderingCreateInfo;
 
     if (vkCreateGraphicsPipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
                                   &pipeline.Handle) != VK_SUCCESS)

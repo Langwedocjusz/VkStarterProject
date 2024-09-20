@@ -7,7 +7,6 @@
 /// Struct containing data needed for ImGuiContext
 struct RenderDataForImGui {
     VkQueue Queue;
-    VkRenderPass RenderPass;
     uint32_t FramesInFlight;
     VkSampleCountFlagBits MSAA;
 };
@@ -36,8 +35,6 @@ class RendererBase {
     RenderDataForImGui getImGuiData() const;
 
   protected:
-    virtual VkRenderPass getImGuiRenderPass() const = 0;
-
     virtual void CreateResources() = 0;
     virtual void CreateDependentResources() = 0;
     virtual void DestroyResources() = 0;
@@ -68,7 +65,6 @@ class RendererBase {
 
     std::vector<VkImage> SwapchainImages;
     std::vector<VkImageView> SwapchainImageViews;
-    std::vector<VkFramebuffer> Framebuffers;
 
     std::vector<VkSemaphore> ImageAcquiredSemaphores;
     std::vector<VkSemaphore> RenderCompletedSemaphores;

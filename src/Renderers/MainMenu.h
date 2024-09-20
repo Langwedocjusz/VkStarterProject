@@ -18,11 +18,6 @@ class MainMenuRenderer : public RendererBase {
     void OnImGui() override;
 
   private:
-    VkRenderPass getImGuiRenderPass() const override
-    {
-        return RenderPass;
-    }
-
     void CreateResources() override;
     void CreateSwapchainResources() override;
     void CreateDependentResources() override;
@@ -33,17 +28,12 @@ class MainMenuRenderer : public RendererBase {
     void SubmitCommandBuffers() override;
 
   private:
-    void CreateRenderPasses();
-
     void CreateCommandPools();
     void CreateCommandBuffers();
-    void CreateFramebuffers();
 
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
   private:
-    VkRenderPass RenderPass;
-
     VkCommandPool CommandPool;
     std::vector<VkCommandBuffer> CommandBuffers;
 };

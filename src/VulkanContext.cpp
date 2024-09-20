@@ -11,7 +11,7 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
     auto inst_ret = vkb::InstanceBuilder()
                         .set_app_name(title.c_str())
                         .set_engine_name("No Engine")
-                        .require_api_version(1, 0, 0)
+                        .require_api_version(1, 3, 0)
                         .request_validation_layers()
                         .use_default_debug_messenger()
                         .build();
@@ -32,9 +32,13 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
     VkPhysicalDeviceFeatures features{};
     features.samplerAnisotropy = true;
 
+    VkPhysicalDeviceVulkan13Features features13{};
+    features13.dynamicRendering = true;
+
     auto phys_device_ret = vkb::PhysicalDeviceSelector(Instance)
                                .set_surface(Surface)
                                .set_required_features(features)
+                               .set_required_features_13(features13)
                                .select();
 
     if (!phys_device_ret)

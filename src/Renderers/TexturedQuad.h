@@ -22,11 +22,6 @@ class TexturedQuadRenderer : public RendererBase {
     void OnImGui() override;
 
   private:
-    VkRenderPass getImGuiRenderPass() const override
-    {
-        return RenderPass;
-    }
-
     void CreateResources() override;
     void CreateSwapchainResources() override;
     void CreateDependentResources() override;
@@ -38,12 +33,10 @@ class TexturedQuadRenderer : public RendererBase {
 
   private:
     void CreateDescriptorSetLayout();
-    void CreateRenderPasses();
     void CreateGraphicsPipelines();
 
     void CreateCommandPools();
     void CreateCommandBuffers();
-    void CreateFramebuffers();
 
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
@@ -61,8 +54,6 @@ class TexturedQuadRenderer : public RendererBase {
     void CreateTextureSampler();
 
   private:
-    VkRenderPass RenderPass;
-
     VkDescriptorSetLayout DescriptorSetLayout;
     VkDescriptorPool DescriptorPool;
     std::vector<VkDescriptorSet> DescriptorSets;

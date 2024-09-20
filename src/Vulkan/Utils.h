@@ -46,6 +46,24 @@ struct TransitionImageLayoutInfo {
 
 void TransitionImageLayout(VulkanContext &ctx, TransitionImageLayoutInfo info);
 
+struct ImageMemoryBarrierInfo {
+    VkImage Image;
+    VkAccessFlags SrcAccessMask;
+    VkAccessFlags DstAccessMask;
+    VkImageLayout OldImageLayout;
+    VkImageLayout NewImageLayout;
+    VkPipelineStageFlags SrcStageMask;
+    VkPipelineStageFlags DstStageMask;
+    VkImageSubresourceRange SubresourceRange;
+};
+
+void InsertImageMemoryBarrier(VkCommandBuffer buffer, ImageMemoryBarrierInfo info);
+
+void ImageBarrierColorToRender(VkCommandBuffer buffer, VkImage swapchainImage);
+void ImageBarrierColorToPresent(VkCommandBuffer buffer, VkImage swapchainImage);
+
+void ImageBarrierDepthToRender(VkCommandBuffer buffer, VkImage depthImage);
+
 struct CopyBufferToImageInfo {
     VkQueue Queue;
     VkCommandPool Pool;

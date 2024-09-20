@@ -21,11 +21,6 @@ class HelloTriangleRenderer : public RendererBase {
     void OnImGui() override;
 
   private:
-    VkRenderPass getImGuiRenderPass() const override
-    {
-        return RenderPass;
-    }
-
     void CreateResources() override;
     void CreateSwapchainResources() override;
     void CreateDependentResources() override;
@@ -55,8 +50,6 @@ class HelloTriangleRenderer : public RendererBase {
     void CreateDescriptorSets();
 
   private:
-    VkRenderPass RenderPass;
-
     VkDescriptorSetLayout DescriptorSetLayout;
     VkDescriptorPool DescriptorPool;
     std::vector<VkDescriptorSet> DescriptorSets;

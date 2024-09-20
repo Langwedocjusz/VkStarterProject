@@ -30,8 +30,10 @@ class PipelineBuilder {
     PipelineBuilder DisableDepthTest();
     PipelineBuilder EnableDepthTest();
 
-    Pipeline Build(VulkanContext &ctx, VkRenderPass renderPass,
-                   VkDescriptorSetLayout &descriptor);
+    PipelineBuilder SetSwapchainColorFormat(VkFormat format);
+    PipelineBuilder SetDepthFormat(VkFormat format);
+
+    Pipeline Build(VulkanContext &ctx, VkDescriptorSetLayout &descriptor);
 
   private:
     std::vector<VkPipelineShaderStageCreateInfo> mShaderStages;
@@ -43,4 +45,9 @@ class PipelineBuilder {
     VkPipelineColorBlendAttachmentState mColorBlendAttachment;
     VkPipelineColorBlendStateCreateInfo mColorBlend;
     VkPipelineDepthStencilStateCreateInfo mDepthStencil;
+
+    VkFormat mSwapchainColorFormat;
+
+    bool mDepthFormatProvided = false;
+    VkFormat mDepthFormat;
 };

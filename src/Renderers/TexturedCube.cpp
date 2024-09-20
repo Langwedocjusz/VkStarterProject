@@ -11,6 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <array>
+#include <iostream>
 
 std::vector<VkVertexInputAttributeDescription> TexturedCubeRenderer::Vertex::
     getAttributeDescriptions()
@@ -34,7 +35,6 @@ void TexturedCubeRenderer::OnImGui()
 
 void TexturedCubeRenderer::CreateResources()
 {
-    CreateRenderPasses();
     CreateDescriptorSetLayout();
     CreateGraphicsPipelines();
 }
@@ -42,7 +42,6 @@ void TexturedCubeRenderer::CreateResources()
 void TexturedCubeRenderer::CreateSwapchainResources()
 {
     CreateDepthResources();
-    CreateFramebuffers();
     CreateCommandPools();
     CreateCommandBuffers();
 }
@@ -70,7 +69,6 @@ void TexturedCubeRenderer::DestroyResources()
 
     vkDestroyPipeline(ctx.Device, GraphicsPipeline.Handle, nullptr);
     vkDestroyPipelineLayout(ctx.Device, GraphicsPipeline.Layout, nullptr);
-    vkDestroyRenderPass(ctx.Device, RenderPass, nullptr);
 
     for (auto &uniformBuffer : UniformBuffers)
         uniformBuffer.OnDestroy(ctx);
@@ -82,11 +80,6 @@ void TexturedCubeRenderer::DestroyResources()
 void TexturedCubeRenderer::DestroySwapchainResources()
 {
     vkDestroyCommandPool(ctx.Device, CommandPool, nullptr);
-
-    for (auto framebuffer : Framebuffers)
-    {
-        vkDestroyFramebuffer(ctx.Device, framebuffer, nullptr);
-    }
 
     vkDestroyImageView(ctx.Device, DepthImageView, nullptr);
     Image::DestroyImage(ctx, DepthImage);
@@ -121,72 +114,6 @@ void TexturedCubeRenderer::CreateDescriptorSetLayout()
         throw std::runtime_error("Failed to create descriptor set layout!");
 }
 
-void TexturedCubeRenderer::CreateRenderPasses()
-{
-    VkAttachmentDescription color_attachment = {};
-    color_attachment.format = ctx.Swapchain.image_format;
-    color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-    VkAttachmentReference color_attachment_ref = {};
-    color_attachment_ref.attachment = 0;
-    color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentDescription depthAttachment{};
-    depthAttachment.format = utils::FindDepthFormat(ctx);
-    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    VkAttachmentReference depthAttachmentRef{};
-    depthAttachmentRef.attachment = 1;
-    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-    VkSubpassDescription subpass = {};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &color_attachment_ref;
-    subpass.pDepthStencilAttachment = &depthAttachmentRef;
-
-    VkSubpassDependency dependency = {};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                              VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dependency.srcAccessMask = 0;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
-                              VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    dependency.dstAccessMask =
-        /*VK_ACCESS_COLOR_ATTACHMENT_READ_BIT |*/
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT |
-        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-    std::array<VkAttachmentDescription, 2> attachments = {color_attachment,
-                                                          depthAttachment};
-
-    VkRenderPassCreateInfo render_pass_info = {};
-    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    render_pass_info.attachmentCount = static_cast<uint32_t>(attachments.size());
-    render_pass_info.pAttachments = attachments.data();
-    render_pass_info.subpassCount = 1;
-    render_pass_info.pSubpasses = &subpass;
-    render_pass_info.dependencyCount = 1;
-    render_pass_info.pDependencies = &dependency;
-
-    if (vkCreateRenderPass(ctx.Device, &render_pass_info, nullptr, &RenderPass) !=
-        VK_SUCCESS)
-        throw std::runtime_error("Failed to create a render pass!");
-}
-
 void TexturedCubeRenderer::CreateGraphicsPipelines()
 {
     auto shaderStages = ShaderBuilder()
@@ -198,6 +125,8 @@ void TexturedCubeRenderer::CreateGraphicsPipelines()
         utils::GetBindingDescription<Vertex>(0, VK_VERTEX_INPUT_RATE_VERTEX);
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
+    VkFormat depthFormat = utils::FindDepthFormat(ctx);
+
     GraphicsPipeline = PipelineBuilder()
                            .SetShaderStages(shaderStages)
                            .SetVertexInput(bindingDescription, attributeDescriptions)
@@ -205,30 +134,9 @@ void TexturedCubeRenderer::CreateGraphicsPipelines()
                            .SetPolygonMode(VK_POLYGON_MODE_FILL)
                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
                            .EnableDepthTest()
-                           .Build(ctx, RenderPass, DescriptorSetLayout);
-}
-
-void TexturedCubeRenderer::CreateFramebuffers()
-{
-    Framebuffers.resize(SwapchainImageViews.size());
-
-    for (size_t i = 0; i < SwapchainImageViews.size(); i++)
-    {
-        std::array<VkImageView, 2> attachments = {SwapchainImageViews[i], DepthImageView};
-
-        VkFramebufferCreateInfo framebuffer_info = {};
-        framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebuffer_info.renderPass = RenderPass;
-        framebuffer_info.attachmentCount = static_cast<uint32_t>(attachments.size());
-        framebuffer_info.pAttachments = attachments.data();
-        framebuffer_info.width = ctx.Swapchain.extent.width;
-        framebuffer_info.height = ctx.Swapchain.extent.height;
-        framebuffer_info.layers = 1;
-
-        if (vkCreateFramebuffer(ctx.Device, &framebuffer_info, nullptr,
-                                &Framebuffers[i]) != VK_SUCCESS)
-            throw std::runtime_error("Failed to create a framebuffer!");
-    }
+                           .SetSwapchainColorFormat(ctx.Swapchain.image_format)
+                           .SetDepthFormat(depthFormat)
+                           .Build(ctx, DescriptorSetLayout);
 }
 
 void TexturedCubeRenderer::CreateCommandPools()
@@ -245,7 +153,7 @@ void TexturedCubeRenderer::CreateCommandPools()
 
 void TexturedCubeRenderer::CreateCommandBuffers()
 {
-    CommandBuffers.resize(Framebuffers.size());
+    CommandBuffers.resize(SwapchainImageViews.size());
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -300,21 +208,36 @@ void TexturedCubeRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
-    VkRenderPassBeginInfo render_pass_info{};
-    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    render_pass_info.renderPass = RenderPass;
-    render_pass_info.framebuffer = Framebuffers[imageIndex];
-    render_pass_info.renderArea.offset = {0, 0};
-    render_pass_info.renderArea.extent = ctx.Swapchain.extent;
+    utils::ImageBarrierColorToRender(commandBuffer, SwapchainImages[imageIndex]);
+    utils::ImageBarrierDepthToRender(commandBuffer, DepthImage.Handle);
 
-    std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    clearValues[1].depthStencil = {1.0f, 0};
+    VkRenderingAttachmentInfoKHR colorAttachment{};
+    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+    colorAttachment.imageView = SwapchainImageViews[imageIndex];
+    colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
 
-    render_pass_info.clearValueCount = static_cast<uint32_t>(clearValues.size());
-    render_pass_info.pClearValues = clearValues.data();
+    VkRenderingAttachmentInfoKHR depthAttachment{};
+    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+    depthAttachment.imageView = DepthImageView;
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.clearValue.depthStencil = {1.0f, 0};
 
-    vkCmdBeginRenderPass(commandBuffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+    VkRenderingInfoKHR renderingInfo{};
+    renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+    renderingInfo.renderArea = {0, 0, ctx.Swapchain.extent.width,
+                                ctx.Swapchain.extent.height};
+    renderingInfo.layerCount = 1;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachments = &colorAttachment;
+    renderingInfo.pDepthAttachment = &depthAttachment;
+    // renderingInfo.pStencilAttachment = &stencilAttachment;
+
+    vkCmdBeginRendering(commandBuffer, &renderingInfo);
     {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           GraphicsPipeline.Handle);
@@ -348,7 +271,9 @@ void TexturedCubeRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
         ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
     }
 
-    vkCmdEndRenderPass(commandBuffer);
+    vkCmdEndRendering(commandBuffer);
+
+    utils::ImageBarrierColorToPresent(commandBuffer, SwapchainImages[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");

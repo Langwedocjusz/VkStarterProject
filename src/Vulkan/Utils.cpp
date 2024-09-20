@@ -131,6 +131,71 @@ void utils::TransitionImageLayout(VulkanContext &ctx, TransitionImageLayoutInfo 
     EndSingleTimeCommands(ctx, info.Queue, info.Pool, commandBuffer);
 }
 
+void utils::InsertImageMemoryBarrier(VkCommandBuffer buffer, ImageMemoryBarrierInfo info)
+{
+    VkImageMemoryBarrier imageMemoryBarrier{};
+    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    imageMemoryBarrier.srcAccessMask = info.SrcAccessMask;
+    imageMemoryBarrier.dstAccessMask = info.DstAccessMask;
+    imageMemoryBarrier.oldLayout = info.OldImageLayout;
+    imageMemoryBarrier.newLayout = info.NewImageLayout;
+    imageMemoryBarrier.image = info.Image;
+    imageMemoryBarrier.subresourceRange = info.SubresourceRange;
+
+    vkCmdPipelineBarrier(buffer, info.SrcStageMask, info.DstStageMask, 0, 0, nullptr, 0,
+                         nullptr, 1, &imageMemoryBarrier);
+}
+
+void utils::ImageBarrierColorToRender(VkCommandBuffer buffer, VkImage swapchainImage)
+{
+    utils::ImageMemoryBarrierInfo info{
+        swapchainImage,
+        0,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}};
+
+    utils::InsertImageMemoryBarrier(buffer, info);
+}
+
+void utils::ImageBarrierColorToPresent(VkCommandBuffer buffer, VkImage swapchainImage)
+{
+    utils::ImageMemoryBarrierInfo info{
+        swapchainImage,
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        0,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}};
+
+    utils::InsertImageMemoryBarrier(buffer, info);
+}
+
+void utils::ImageBarrierDepthToRender(VkCommandBuffer buffer, VkImage depthImage)
+{
+    utils::ImageMemoryBarrierInfo info{
+        depthImage,
+        0,
+        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}};
+
+    utils::InsertImageMemoryBarrier(buffer, info);
+}
+
 void utils::CopyBufferToImage(VulkanContext &ctx, CopyBufferToImageInfo info)
 {
     VkCommandBuffer commandBuffer = BeginSingleTimeCommands(ctx, info.Pool);

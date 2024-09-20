@@ -4,6 +4,8 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
 
+#include "Utils.h"
+
 static void ImGuiStyleCustom();
 
 void ImGuiContextManager::OnInit(VulkanContext &ctx, const RendererBase *const renderer)
@@ -98,16 +100,29 @@ void ImGuiContextManager::InitImGuiVulkanBackend(VulkanContext &ctx,
     init_info.Device = ctx.Device;
 
     // init_info.QueueFamily = g_QueueFamily;
-    init_info.Queue = rdata.Queue;
     // init_info.PipelineCache = g_PipelineCache;
+    // init_info.RenderPass = rdata.RenderPass;
+    // init_info.Subpass = 0;
+    // init_info.Allocator = g_Allocator;
+
+    init_info.Queue = rdata.Queue;
     init_info.DescriptorPool = m_ImguiPool;
-    init_info.RenderPass = rdata.RenderPass;
-    init_info.Subpass = 0;
     init_info.MinImageCount = rdata.FramesInFlight;
     init_info.ImageCount = rdata.FramesInFlight;
     init_info.MSAASamples = rdata.MSAA;
-    // init_info.Allocator = g_Allocator;
     init_info.CheckVkResultFn = check_vk_result;
+    init_info.UseDynamicRendering = true;
+
+    // Dynamic rendering data
+    init_info.PipelineRenderingCreateInfo = {};
+    init_info.PipelineRenderingCreateInfo.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats =
+        &ctx.Swapchain.image_format;
+    ;
+    init_info.PipelineRenderingCreateInfo.depthAttachmentFormat =
+        utils::FindDepthFormat(ctx);
 
     ImGui_ImplVulkan_Init(&init_info);
 }
