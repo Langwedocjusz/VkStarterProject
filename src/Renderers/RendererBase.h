@@ -21,10 +21,8 @@ struct RenderDataForImGui {
 class RendererBase {
   public:
     RendererBase(VulkanContext &context, std::function<void()> cb);
-    // Derived classes should call VulkanCleanup in their destructors!
-    virtual ~RendererBase() = default;
 
-    void OnInit();
+    virtual ~RendererBase();
 
     virtual void OnUpdate();
     virtual void OnImGui();
@@ -35,10 +33,6 @@ class RendererBase {
     RenderDataForImGui getImGuiData() const;
 
   protected:
-    virtual void CreateResources() = 0;
-    virtual void CreateDependentResources() = 0;
-    virtual void DestroyResources() = 0;
-
     virtual void CreateSwapchainResources() = 0;
     virtual void DestroySwapchainResources() = 0;
 
@@ -60,17 +54,17 @@ class RendererBase {
 
     const size_t MAX_FRAMES_IN_FLIGHT = 2;
 
-    VkQueue GraphicsQueue;
-    VkQueue PresentQueue;
+    VkQueue mGraphicsQueue;
+    VkQueue mPresentQueue;
 
-    std::vector<VkImage> SwapchainImages;
-    std::vector<VkImageView> SwapchainImageViews;
+    std::vector<VkImage> mSwapchainImages;
+    std::vector<VkImageView> mSwapchainImageViews;
 
-    std::vector<VkSemaphore> ImageAcquiredSemaphores;
-    std::vector<VkSemaphore> RenderCompletedSemaphores;
+    std::vector<VkSemaphore> mImageAcquiredSemaphores;
+    std::vector<VkSemaphore> mRenderCompletedSemaphores;
 
-    std::vector<VkFence> InFlightFences;
+    std::vector<VkFence> mInFlightFences;
 
-    size_t FrameSemaphoreIndex = 0;
-    uint32_t FrameImageIndex = 0;
+    size_t mFrameSemaphoreIndex = 0;
+    uint32_t mFrameImageIndex = 0;
 };

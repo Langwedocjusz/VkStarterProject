@@ -47,10 +47,14 @@ target_sources(${PROJECT_NAME}
         src/Vulkan/Buffer.cpp
         src/Vulkan/Image.h
         src/Vulkan/Image.cpp
+        src/Vulkan/ImageView.h
+        src/Vulkan/ImageView.cpp
         src/Vulkan/ImageLoaders.h
         src/Vulkan/ImageLoaders.cpp
         src/Vulkan/Pipeline.h
         src/Vulkan/Pipeline.cpp
+        src/Vulkan/Sampler.h
+        src/Vulkan/Sampler.cpp
         src/Vulkan/Shader.h
         src/Vulkan/Shader.cpp
         src/Vulkan/Utils.h

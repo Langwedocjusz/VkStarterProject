@@ -18,33 +18,19 @@ VkVertexInputBindingDescription GetBindingDescription(uint32_t binding,
     return bindingDescription;
 }
 
-VkImageView CreateImageView(VulkanContext &ctx, VkImage image, VkFormat format,
-                            VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT);
+void ViewportScissorDefaultBehaviour(VulkanContext &ctx, VkCommandBuffer buffer);
 
 VkCommandBuffer BeginSingleTimeCommands(VulkanContext &ctx, VkCommandPool commandPool);
+
 void EndSingleTimeCommands(VulkanContext &ctx, VkQueue queue, VkCommandPool commandPool,
                            VkCommandBuffer commandBuffer);
 
-struct CopyBufferInfo {
-    VkQueue Queue;
-    VkCommandPool Pool;
-    VkBuffer Src;
-    VkBuffer Dst;
-    VkDeviceSize Size;
-};
+VkFormat FindSupportedFormat(VulkanContext &ctx, const std::vector<VkFormat> &candidates,
+                             VkImageTiling tiling, VkFormatFeatureFlags features);
 
-void CopyBuffer(VulkanContext &ctx, CopyBufferInfo info);
+VkFormat FindDepthFormat(VulkanContext &ctx);
 
-struct TransitionImageLayoutInfo {
-    VkQueue Queue;
-    VkCommandPool Pool;
-    VkImage Image;
-    VkFormat Format;
-    VkImageLayout OldLayout;
-    VkImageLayout NewLayout;
-};
-
-void TransitionImageLayout(VulkanContext &ctx, TransitionImageLayoutInfo info);
+bool HasStencilComponent(VkFormat format);
 
 struct ImageMemoryBarrierInfo {
     VkImage Image;
@@ -63,23 +49,4 @@ void ImageBarrierColorToRender(VkCommandBuffer buffer, VkImage swapchainImage);
 void ImageBarrierColorToPresent(VkCommandBuffer buffer, VkImage swapchainImage);
 
 void ImageBarrierDepthToRender(VkCommandBuffer buffer, VkImage depthImage);
-
-struct CopyBufferToImageInfo {
-    VkQueue Queue;
-    VkCommandPool Pool;
-    VkBuffer Buffer;
-    VkImage Image;
-    uint32_t Width;
-    uint32_t Height;
-};
-
-void CopyBufferToImage(VulkanContext &ctx, CopyBufferToImageInfo info);
-
-VkFormat FindSupportedFormat(VulkanContext &ctx, const std::vector<VkFormat> &candidates,
-                             VkImageTiling tiling, VkFormatFeatureFlags features);
-
-VkFormat FindDepthFormat(VulkanContext &ctx);
-
-bool HasStencilComponent(VkFormat format);
-
 } // namespace utils

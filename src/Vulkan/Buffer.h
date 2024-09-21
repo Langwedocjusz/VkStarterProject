@@ -2,6 +2,14 @@
 
 #include "VulkanContext.h"
 
+struct CopyBufferInfo {
+    VkQueue Queue;
+    VkCommandPool Pool;
+    VkBuffer Src;
+    VkBuffer Dst;
+    VkDeviceSize Size;
+};
+
 struct GPUBufferInfo {
     VkQueue Queue;
     VkCommandPool Pool;
@@ -29,6 +37,8 @@ class Buffer {
     static Buffer CreateStagingBuffer(VulkanContext &ctx, VkDeviceSize size);
     static Buffer CreateMappedUniformBuffer(VulkanContext &ctx, VkDeviceSize size);
     static Buffer CreateGPUBuffer(VulkanContext &ctx, GPUBufferInfo info);
+
+    static void CopyBuffer(VulkanContext &ctx, CopyBufferInfo info);
 
   public:
     VkBuffer Handle;

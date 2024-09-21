@@ -60,7 +60,7 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageDataInfo info)
 
     Buffer::UploadToBuffer(ctx, stagingBuffer, info.Data, info.Size);
 
-    utils::TransitionImageLayoutInfo trInfo{
+    TransitionImageLayoutInfo trInfo{
         .Queue = info.Queue,
         .Pool = info.Pool,
         .Image = img.Handle,
@@ -69,9 +69,9 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageDataInfo info)
         .NewLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
     };
 
-    utils::TransitionImageLayout(ctx, trInfo);
+    TransitionImageLayout(ctx, trInfo);
 
-    utils::CopyBufferToImageInfo cpInfo{
+    CopyBufferToImageInfo cpInfo{
         .Queue = info.Queue,
         .Pool = info.Pool,
         .Buffer = stagingBuffer.Handle,
@@ -80,12 +80,92 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageDataInfo info)
         .Height = img.Info.Height,
     };
 
-    utils::CopyBufferToImage(ctx, cpInfo);
+    CopyBufferToImage(ctx, cpInfo);
 
     trInfo.OldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     trInfo.NewLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    utils::TransitionImageLayout(ctx, trInfo);
+    TransitionImageLayout(ctx, trInfo);
 
     Buffer::DestroyBuffer(ctx, stagingBuffer);
+}
+
+void Image::CopyBufferToImage(VulkanContext &ctx, CopyBufferToImageInfo info)
+{
+    VkCommandBuffer commandBuffer = utils::BeginSingleTimeCommands(ctx, info.Pool);
+
+    VkBufferImageCopy region{};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
+
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+
+    region.imageOffset = {0, 0, 0};
+    region.imageExtent = {info.Width, info.Height, 1};
+
+    vkCmdCopyBufferToImage(commandBuffer, info.Buffer, info.Image,
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    utils::EndSingleTimeCommands(ctx, info.Queue, info.Pool, commandBuffer);
+}
+
+void Image::TransitionImageLayout(VulkanContext &ctx, TransitionImageLayoutInfo info)
+{
+    VkCommandBuffer commandBuffer = utils::BeginSingleTimeCommands(ctx, info.Pool);
+
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.oldLayout = info.OldLayout;
+    barrier.newLayout = info.NewLayout;
+
+    // Other values used to transfer ownership between queues:
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+
+    barrier.image = info.Image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    VkPipelineStageFlags sourceStage;
+    VkPipelineStageFlags destinationStage;
+
+    bool undefined_to_dst = (info.OldLayout == VK_IMAGE_LAYOUT_UNDEFINED &&
+                             info.NewLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    bool dst_to_shader_read =
+        (info.OldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+         info.NewLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    if (undefined_to_dst)
+    {
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    else if (dst_to_shader_read)
+    {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    else
+    {
+        throw std::invalid_argument("Unsupported layout transition!");
+    }
+
+    vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0,
+                         nullptr, 1, &barrier);
+
+    utils::EndSingleTimeCommands(ctx, info.Queue, info.Pool, commandBuffer);
 }

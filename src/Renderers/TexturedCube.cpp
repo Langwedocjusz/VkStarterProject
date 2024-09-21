@@ -3,6 +3,8 @@
 #include "Utils.h"
 
 #include "ImageLoaders.h"
+#include "ImageView.h"
+#include "Sampler.h"
 #include "Shader.h"
 
 #include "ImGuiContext.h"
@@ -25,18 +27,48 @@ std::vector<VkVertexInputAttributeDescription> TexturedCubeRenderer::Vertex::
     return attributeDescriptions;
 }
 
+TexturedCubeRenderer::TexturedCubeRenderer(VulkanContext &ctx,
+                                           std::function<void()> callback)
+    : RendererBase(ctx, callback)
+{
+    CreateDescriptorSetLayout();
+    CreateGraphicsPipelines();
+    CreateSwapchainResources();
+    CreateTextureResources();
+    CreateVertexBuffers();
+    CreateIndexBuffers();
+    CreateUniformBuffers();
+    CreateDescriptorPool();
+    CreateDescriptorSets();
+}
+
+TexturedCubeRenderer::~TexturedCubeRenderer()
+{
+    DestroySwapchainResources();
+
+    vkDestroySampler(ctx.Device, mTextureSampler, nullptr);
+    vkDestroyImageView(ctx.Device, mTextureImageView, nullptr);
+    Image::DestroyImage(ctx, mTextureImage);
+
+    Buffer::DestroyBuffer(ctx, mVertexBuffer);
+    Buffer::DestroyBuffer(ctx, mIndexBuffer);
+
+    vkDestroyPipeline(ctx.Device, mGraphicsPipeline.Handle, nullptr);
+    vkDestroyPipelineLayout(ctx.Device, mGraphicsPipeline.Layout, nullptr);
+
+    for (auto &uniformBuffer : mUniformBuffers)
+        uniformBuffer.OnDestroy(ctx);
+
+    vkDestroyDescriptorPool(ctx.Device, mDescriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(ctx.Device, mDescriptorSetLayout, nullptr);
+}
+
 void TexturedCubeRenderer::OnImGui()
 {
     ImGui::Begin("Textured Cube");
     callback();
-    ImGui::SliderFloat("Rotation", &UBOData.Phi, 0.0f, 6.28f);
+    ImGui::SliderFloat("Rotation", &mUBOData.Phi, 0.0f, 6.28f);
     ImGui::End();
-}
-
-void TexturedCubeRenderer::CreateResources()
-{
-    CreateDescriptorSetLayout();
-    CreateGraphicsPipelines();
 }
 
 void TexturedCubeRenderer::CreateSwapchainResources()
@@ -46,43 +78,12 @@ void TexturedCubeRenderer::CreateSwapchainResources()
     CreateCommandBuffers();
 }
 
-void TexturedCubeRenderer::CreateDependentResources()
-{
-    CreateTextureImage();
-    CreateTextureImageView();
-    CreateTextureSampler();
-    CreateVertexBuffers();
-    CreateIndexBuffers();
-    CreateUniformBuffers();
-    CreateDescriptorPool();
-    CreateDescriptorSets();
-}
-
-void TexturedCubeRenderer::DestroyResources()
-{
-    vkDestroySampler(ctx.Device, TextureSampler, nullptr);
-    vkDestroyImageView(ctx.Device, TextureImageView, nullptr);
-    Image::DestroyImage(ctx, TextureImage);
-
-    Buffer::DestroyBuffer(ctx, VertexBuffer);
-    Buffer::DestroyBuffer(ctx, IndexBuffer);
-
-    vkDestroyPipeline(ctx.Device, GraphicsPipeline.Handle, nullptr);
-    vkDestroyPipelineLayout(ctx.Device, GraphicsPipeline.Layout, nullptr);
-
-    for (auto &uniformBuffer : UniformBuffers)
-        uniformBuffer.OnDestroy(ctx);
-
-    vkDestroyDescriptorPool(ctx.Device, DescriptorPool, nullptr);
-    vkDestroyDescriptorSetLayout(ctx.Device, DescriptorSetLayout, nullptr);
-}
-
 void TexturedCubeRenderer::DestroySwapchainResources()
 {
-    vkDestroyCommandPool(ctx.Device, CommandPool, nullptr);
+    vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr);
 
-    vkDestroyImageView(ctx.Device, DepthImageView, nullptr);
-    Image::DestroyImage(ctx, DepthImage);
+    vkDestroyImageView(ctx.Device, mDepthImageView, nullptr);
+    Image::DestroyImage(ctx, mDepthImage);
 }
 
 void TexturedCubeRenderer::CreateDescriptorSetLayout()
@@ -110,7 +111,7 @@ void TexturedCubeRenderer::CreateDescriptorSetLayout()
     layoutInfo.pBindings = bindings.data();
 
     if (vkCreateDescriptorSetLayout(ctx.Device, &layoutInfo, nullptr,
-                                    &DescriptorSetLayout) != VK_SUCCESS)
+                                    &mDescriptorSetLayout) != VK_SUCCESS)
         throw std::runtime_error("Failed to create descriptor set layout!");
 }
 
@@ -127,16 +128,16 @@ void TexturedCubeRenderer::CreateGraphicsPipelines()
 
     VkFormat depthFormat = utils::FindDepthFormat(ctx);
 
-    GraphicsPipeline = PipelineBuilder()
-                           .SetShaderStages(shaderStages)
-                           .SetVertexInput(bindingDescription, attributeDescriptions)
-                           .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-                           .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                           .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
-                           .EnableDepthTest()
-                           .SetSwapchainColorFormat(ctx.Swapchain.image_format)
-                           .SetDepthFormat(depthFormat)
-                           .Build(ctx, DescriptorSetLayout);
+    mGraphicsPipeline = PipelineBuilder()
+                            .SetShaderStages(shaderStages)
+                            .SetVertexInput(bindingDescription, attributeDescriptions)
+                            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+                            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
+                            .EnableDepthTest()
+                            .SetSwapchainColorFormat(ctx.Swapchain.image_format)
+                            .SetDepthFormat(depthFormat)
+                            .Build(ctx, mDescriptorSetLayout);
 }
 
 void TexturedCubeRenderer::CreateCommandPools()
@@ -147,32 +148,32 @@ void TexturedCubeRenderer::CreateCommandPools()
     pool_info.queueFamilyIndex =
         ctx.Device.get_queue_index(vkb::QueueType::graphics).value();
 
-    if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &CommandPool) != VK_SUCCESS)
+    if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &mCommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a command pool!");
 }
 
 void TexturedCubeRenderer::CreateCommandBuffers()
 {
-    CommandBuffers.resize(SwapchainImageViews.size());
+    mCommandBuffers.resize(mSwapchainImageViews.size());
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = CommandPool;
+    allocInfo.commandPool = mCommandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = (uint32_t)CommandBuffers.size();
+    allocInfo.commandBufferCount = static_cast<uint32_t>(mCommandBuffers.size());
 
-    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, CommandBuffers.data()) !=
+    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, mCommandBuffers.data()) !=
         VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
 void TexturedCubeRenderer::SubmitCommandBuffers()
 {
-    auto &imageAcquiredSemaphore = ImageAcquiredSemaphores[FrameSemaphoreIndex];
-    auto &renderCompleteSemaphore = RenderCompletedSemaphores[FrameSemaphoreIndex];
+    auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
+    auto &renderCompleteSemaphore = mRenderCompletedSemaphores[mFrameSemaphoreIndex];
 
-    vkResetCommandBuffer(CommandBuffers[FrameSemaphoreIndex], 0);
-    RecordCommandBuffer(CommandBuffers[FrameSemaphoreIndex], FrameImageIndex);
+    vkResetCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], 0);
+    RecordCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], mFrameImageIndex);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -184,14 +185,14 @@ void TexturedCubeRenderer::SubmitCommandBuffers()
     submitInfo.pWaitDstStageMask = wait_stages;
 
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &CommandBuffers[FrameSemaphoreIndex];
+    submitInfo.pCommandBuffers = &mCommandBuffers[mFrameSemaphoreIndex];
 
     VkSemaphore signal_semaphores[] = {renderCompleteSemaphore};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signal_semaphores;
 
-    if (vkQueueSubmit(GraphicsQueue, 1, &submitInfo,
-                      InFlightFences[FrameSemaphoreIndex]) != VK_SUCCESS)
+    if (vkQueueSubmit(mGraphicsQueue, 1, &submitInfo,
+                      mInFlightFences[mFrameSemaphoreIndex]) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to submit draw command buffer!");
     }
@@ -208,12 +209,12 @@ void TexturedCubeRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
-    utils::ImageBarrierColorToRender(commandBuffer, SwapchainImages[imageIndex]);
-    utils::ImageBarrierDepthToRender(commandBuffer, DepthImage.Handle);
+    utils::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
+    utils::ImageBarrierDepthToRender(commandBuffer, mDepthImage.Handle);
 
     VkRenderingAttachmentInfoKHR colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-    colorAttachment.imageView = SwapchainImageViews[imageIndex];
+    colorAttachment.imageView = mSwapchainImageViews[imageIndex];
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -221,7 +222,7 @@ void TexturedCubeRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
 
     VkRenderingAttachmentInfoKHR depthAttachment{};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-    depthAttachment.imageView = DepthImageView;
+    depthAttachment.imageView = mDepthImageView;
     depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -240,40 +241,28 @@ void TexturedCubeRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
     {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          GraphicsPipeline.Handle);
+                          mGraphicsPipeline.Handle);
 
-        VkViewport viewport = {};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = static_cast<float>(ctx.Swapchain.extent.width);
-        viewport.height = static_cast<float>(ctx.Swapchain.extent.height);
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+        utils::ViewportScissorDefaultBehaviour(ctx, commandBuffer);
 
-        VkRect2D scissor = {};
-        scissor.offset = {0, 0};
-        scissor.extent = ctx.Swapchain.extent;
-        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-        VkBuffer vertexBuffers[] = {VertexBuffer.Handle};
+        VkBuffer vertexBuffers[] = {mVertexBuffer.Handle};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-        vkCmdBindIndexBuffer(commandBuffer, IndexBuffer.Handle, 0, VK_INDEX_TYPE_UINT16);
+        vkCmdBindIndexBuffer(commandBuffer, mIndexBuffer.Handle, 0, VK_INDEX_TYPE_UINT16);
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                GraphicsPipeline.Layout, 0, 1,
-                                &DescriptorSets[FrameSemaphoreIndex], 0, nullptr);
+                                mGraphicsPipeline.Layout, 0, 1,
+                                &mDescriptorSets[mFrameSemaphoreIndex], 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(IndexCount), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mIndexCount), 1, 0, 0, 0);
 
         ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
     }
 
     vkCmdEndRendering(commandBuffer);
 
-    utils::ImageBarrierColorToPresent(commandBuffer, SwapchainImages[imageIndex]);
+    utils::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");
@@ -315,18 +304,18 @@ void TexturedCubeRenderer::CreateVertexBuffers()
     };
     // clang-format on
 
-    VertexCount = vertices.size();
+    mVertexCount = vertices.size();
 
     GPUBufferInfo info{
-        .Queue = GraphicsQueue,
-        .Pool = CommandPool,
+        .Queue = mGraphicsQueue,
+        .Pool = mCommandPool,
         .Data = vertices.data(),
-        .Size = VertexCount * sizeof(Vertex),
+        .Size = mVertexCount * sizeof(Vertex),
         .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     };
 
-    VertexBuffer = Buffer::CreateGPUBuffer(ctx, info);
+    mVertexBuffer = Buffer::CreateGPUBuffer(ctx, info);
 }
 
 void TexturedCubeRenderer::CreateIndexBuffers()
@@ -342,27 +331,27 @@ void TexturedCubeRenderer::CreateIndexBuffers()
     };
     // clang-format on
 
-    IndexCount = indices.size();
+    mIndexCount = indices.size();
 
     GPUBufferInfo info{
-        .Queue = GraphicsQueue,
-        .Pool = CommandPool,
+        .Queue = mGraphicsQueue,
+        .Pool = mCommandPool,
         .Data = indices.data(),
-        .Size = IndexCount * sizeof(uint16_t),
+        .Size = mIndexCount * sizeof(uint16_t),
         .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
         .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     };
 
-    IndexBuffer = Buffer::CreateGPUBuffer(ctx, info);
+    mIndexBuffer = Buffer::CreateGPUBuffer(ctx, info);
 }
 
 void TexturedCubeRenderer::CreateUniformBuffers()
 {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-    UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    mUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
-    for (auto &uniformBuffer : UniformBuffers)
+    for (auto &uniformBuffer : mUniformBuffers)
         uniformBuffer.OnInit(ctx, bufferSize);
 }
 
@@ -380,10 +369,10 @@ void TexturedCubeRenderer::UpdateUniformBuffer()
     auto proj = glm::perspective(glm::radians(45.0f), aspect, 0.01f, 100.0f);
     auto view = glm::lookAt(pos, pos + front, up);
 
-    UBOData.MVP = proj * view;
+    mUBOData.MVP = proj * view;
 
-    auto &uniformBuffer = UniformBuffers[FrameSemaphoreIndex];
-    uniformBuffer.UploadData(&UBOData, sizeof(UBOData));
+    auto &uniformBuffer = mUniformBuffers[mFrameSemaphoreIndex];
+    uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
 }
 
 void TexturedCubeRenderer::CreateDescriptorPool()
@@ -400,42 +389,43 @@ void TexturedCubeRenderer::CreateDescriptorPool()
     poolInfo.pPoolSizes = poolSizes.data();
     poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-    if (vkCreateDescriptorPool(ctx.Device, &poolInfo, nullptr, &DescriptorPool) !=
+    if (vkCreateDescriptorPool(ctx.Device, &poolInfo, nullptr, &mDescriptorPool) !=
         VK_SUCCESS)
         throw std::runtime_error("Failed to create descriptor pool!");
 }
 
 void TexturedCubeRenderer::CreateDescriptorSets()
 {
-    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, DescriptorSetLayout);
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
+                                               mDescriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = DescriptorPool;
+    allocInfo.descriptorPool = mDescriptorPool;
     allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
     allocInfo.pSetLayouts = layouts.data();
 
-    DescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    mDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
 
-    if (vkAllocateDescriptorSets(ctx.Device, &allocInfo, DescriptorSets.data()) !=
+    if (vkAllocateDescriptorSets(ctx.Device, &allocInfo, mDescriptorSets.data()) !=
         VK_SUCCESS)
         throw std::runtime_error("Failed to allocate descriptor sets!");
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = UniformBuffers[i].Handle();
+        bufferInfo.buffer = mUniformBuffers[i].Handle();
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
         VkDescriptorImageInfo imageInfo{};
         imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = TextureImageView;
-        imageInfo.sampler = TextureSampler;
+        imageInfo.imageView = mTextureImageView;
+        imageInfo.sampler = mTextureSampler;
 
         std::array<VkWriteDescriptorSet, 2> descriptorWrites{};
 
         descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[0].dstSet = DescriptorSets[i];
+        descriptorWrites[0].dstSet = mDescriptorSets[i];
         descriptorWrites[0].dstBinding = 0;
         descriptorWrites[0].dstArrayElement = 0;
         descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -443,7 +433,7 @@ void TexturedCubeRenderer::CreateDescriptorSets()
         descriptorWrites[0].pBufferInfo = &bufferInfo;
 
         descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = DescriptorSets[i];
+        descriptorWrites[1].dstSet = mDescriptorSets[i];
         descriptorWrites[1].dstBinding = 1;
         descriptorWrites[1].dstArrayElement = 0;
         descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -455,72 +445,41 @@ void TexturedCubeRenderer::CreateDescriptorSets()
     }
 }
 
-void TexturedCubeRenderer::CreateTextureImage()
+void TexturedCubeRenderer::CreateTextureResources()
 {
     ImageLoaderInfo info{
-        .Queue = GraphicsQueue,
-        .Pool = CommandPool,
+        .Queue = mGraphicsQueue,
+        .Pool = mCommandPool,
         .Filepath = "assets/textures/container.jpg",
     };
 
-    TextureImage = ImageLoaders::LoadImage2D(ctx, info);
-}
+    mTextureImage = ImageLoaders::LoadImage2D(ctx, info);
 
-void TexturedCubeRenderer::CreateTextureImageView()
-{
-    TextureImageView =
-        utils::CreateImageView(ctx, TextureImage.Handle, VK_FORMAT_R8G8B8A8_SRGB);
-}
+    mTextureImageView =
+        ImageView::Create(ctx, mTextureImage.Handle, VK_FORMAT_R8G8B8A8_SRGB);
 
-void TexturedCubeRenderer::CreateTextureSampler()
-{
-    VkSamplerCreateInfo samplerInfo{};
-    samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-
-    VkPhysicalDeviceProperties properties{};
-    vkGetPhysicalDeviceProperties(ctx.PhysicalDevice, &properties);
-
-    // Overkill, but why not
-    samplerInfo.anisotropyEnable = VK_TRUE;
-    samplerInfo.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
-
-    samplerInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
-    samplerInfo.unnormalizedCoordinates = VK_FALSE;
-
-    samplerInfo.compareEnable = VK_FALSE;
-    samplerInfo.compareOp = VK_COMPARE_OP_ALWAYS;
-
-    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    samplerInfo.mipLodBias = 0.0f;
-    samplerInfo.minLod = 0.0f;
-    samplerInfo.maxLod = 0.0f;
-
-    if (vkCreateSampler(ctx.Device, &samplerInfo, nullptr, &TextureSampler) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create texture sampler!");
+    mTextureSampler = SamplerBuilder()
+                          .SetMagFilter(VK_FILTER_LINEAR)
+                          .SetMinFilter(VK_FILTER_LINEAR)
+                          .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
+                          .Build(ctx);
 }
 
 void TexturedCubeRenderer::CreateDepthResources()
 {
     VkFormat depthFormat = utils::FindDepthFormat(ctx);
 
-    {
-        ImageInfo info{
-            .Width = ctx.Swapchain.extent.width,
-            .Height = ctx.Swapchain.extent.height,
-            .Format = depthFormat,
-            .Tiling = VK_IMAGE_TILING_OPTIMAL,
-            .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-            .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        };
+    ImageInfo info{
+        .Width = ctx.Swapchain.extent.width,
+        .Height = ctx.Swapchain.extent.height,
+        .Format = depthFormat,
+        .Tiling = VK_IMAGE_TILING_OPTIMAL,
+        .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    };
 
-        DepthImage = Image::CreateImage(ctx, info);
-    }
+    mDepthImage = Image::CreateImage(ctx, info);
 
-    DepthImageView = utils::CreateImageView(ctx, DepthImage.Handle, depthFormat,
-                                            VK_IMAGE_ASPECT_DEPTH_BIT);
+    mDepthImageView = ImageView::Create(ctx, mDepthImage.Handle, depthFormat,
+                                        VK_IMAGE_ASPECT_DEPTH_BIT);
 }

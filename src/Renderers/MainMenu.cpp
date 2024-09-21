@@ -5,15 +5,22 @@
 #include "ImGuiContext.h"
 #include "imgui.h"
 
+MainMenuRenderer::MainMenuRenderer(VulkanContext &ctx, std::function<void()> callback)
+    : RendererBase(ctx, callback)
+{
+    CreateSwapchainResources();
+}
+
+MainMenuRenderer::~MainMenuRenderer()
+{
+    DestroySwapchainResources();
+}
+
 void MainMenuRenderer::OnImGui()
 {
     ImGui::Begin("Main Menu");
     callback();
     ImGui::End();
-}
-
-void MainMenuRenderer::CreateResources()
-{
 }
 
 void MainMenuRenderer::CreateSwapchainResources()
@@ -22,17 +29,9 @@ void MainMenuRenderer::CreateSwapchainResources()
     CreateCommandBuffers();
 }
 
-void MainMenuRenderer::CreateDependentResources()
-{
-}
-
-void MainMenuRenderer::DestroyResources()
-{
-}
-
 void MainMenuRenderer::DestroySwapchainResources()
 {
-    vkDestroyCommandPool(ctx.Device, CommandPool, nullptr);
+    vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr);
 }
 
 void MainMenuRenderer::CreateCommandPools()
@@ -43,32 +42,32 @@ void MainMenuRenderer::CreateCommandPools()
     pool_info.queueFamilyIndex =
         ctx.Device.get_queue_index(vkb::QueueType::graphics).value();
 
-    if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &CommandPool) != VK_SUCCESS)
+    if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &mCommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a command pool!");
 }
 
 void MainMenuRenderer::CreateCommandBuffers()
 {
-    CommandBuffers.resize(SwapchainImageViews.size());
+    mCommandBuffers.resize(mSwapchainImageViews.size());
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = CommandPool;
+    allocInfo.commandPool = mCommandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = (uint32_t)CommandBuffers.size();
+    allocInfo.commandBufferCount = static_cast<uint32_t>(mCommandBuffers.size());
 
-    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, CommandBuffers.data()) !=
+    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, mCommandBuffers.data()) !=
         VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
 void MainMenuRenderer::SubmitCommandBuffers()
 {
-    auto &imageAcquiredSemaphore = ImageAcquiredSemaphores[FrameSemaphoreIndex];
-    auto &renderCompleteSemaphore = RenderCompletedSemaphores[FrameSemaphoreIndex];
+    auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
+    auto &renderCompleteSemaphore = mRenderCompletedSemaphores[mFrameSemaphoreIndex];
 
-    vkResetCommandBuffer(CommandBuffers[FrameSemaphoreIndex], 0);
-    RecordCommandBuffer(CommandBuffers[FrameSemaphoreIndex], FrameImageIndex);
+    vkResetCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], 0);
+    RecordCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], mFrameImageIndex);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -80,14 +79,14 @@ void MainMenuRenderer::SubmitCommandBuffers()
     submitInfo.pWaitDstStageMask = wait_stages;
 
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &CommandBuffers[FrameSemaphoreIndex];
+    submitInfo.pCommandBuffers = &mCommandBuffers[mFrameSemaphoreIndex];
 
     VkSemaphore signal_semaphores[] = {renderCompleteSemaphore};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signal_semaphores;
 
-    if (vkQueueSubmit(GraphicsQueue, 1, &submitInfo,
-                      InFlightFences[FrameSemaphoreIndex]) != VK_SUCCESS)
+    if (vkQueueSubmit(mGraphicsQueue, 1, &submitInfo,
+                      mInFlightFences[mFrameSemaphoreIndex]) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to submit draw command buffer!");
     }
@@ -102,11 +101,11 @@ void MainMenuRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
-    utils::ImageBarrierColorToRender(commandBuffer, SwapchainImages[imageIndex]);
+    utils::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
 
     VkRenderingAttachmentInfoKHR colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-    colorAttachment.imageView = SwapchainImageViews[imageIndex];
+    colorAttachment.imageView = mSwapchainImageViews[imageIndex];
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -122,25 +121,13 @@ void MainMenuRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
 
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
     {
-        VkViewport viewport = {};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = static_cast<float>(ctx.Swapchain.extent.width);
-        viewport.height = static_cast<float>(ctx.Swapchain.extent.height);
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-        VkRect2D scissor = {};
-        scissor.offset = {0, 0};
-        scissor.extent = ctx.Swapchain.extent;
-        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+        utils::ViewportScissorDefaultBehaviour(ctx, commandBuffer);
 
         ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
     }
     vkCmdEndRendering(commandBuffer);
 
-    utils::ImageBarrierColorToPresent(commandBuffer, SwapchainImages[imageIndex]);
+    utils::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");

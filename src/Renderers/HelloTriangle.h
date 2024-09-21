@@ -9,23 +9,14 @@
 
 class HelloTriangleRenderer : public RendererBase {
   public:
-    HelloTriangleRenderer(VulkanContext &ctx, std::function<void()> callback)
-        : RendererBase(ctx, callback)
-    {
-    }
-    ~HelloTriangleRenderer()
-    {
-        VulkanCleanup();
-    }
+    HelloTriangleRenderer(VulkanContext &ctx, std::function<void()> callback);
+
+    ~HelloTriangleRenderer();
 
     void OnImGui() override;
 
   private:
-    void CreateResources() override;
     void CreateSwapchainResources() override;
-    void CreateDependentResources() override;
-
-    void DestroyResources() override;
     void DestroySwapchainResources() override;
 
     void SubmitCommandBuffers() override;
@@ -50,14 +41,14 @@ class HelloTriangleRenderer : public RendererBase {
     void CreateDescriptorSets();
 
   private:
-    VkDescriptorSetLayout DescriptorSetLayout;
-    VkDescriptorPool DescriptorPool;
-    std::vector<VkDescriptorSet> DescriptorSets;
+    VkDescriptorSetLayout mDescriptorSetLayout;
+    VkDescriptorPool mDescriptorPool;
+    std::vector<VkDescriptorSet> mDescriptorSets;
 
-    Pipeline GraphicsPipeline;
+    Pipeline mGraphicsPipeline;
 
-    VkCommandPool CommandPool;
-    std::vector<VkCommandBuffer> CommandBuffers;
+    VkCommandPool mCommandPool;
+    std::vector<VkCommandBuffer> mCommandBuffers;
 
     struct Vertex {
         glm::vec2 Pos;
@@ -66,14 +57,14 @@ class HelloTriangleRenderer : public RendererBase {
         static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
     };
 
-    Buffer VertexBuffer;
-    size_t VertexCount;
+    Buffer mVertexBuffer;
+    size_t mVertexCount;
 
-    std::vector<MappedUniformBuffer> UniformBuffers;
+    std::vector<MappedUniformBuffer> mUniformBuffers;
 
     struct UniformBufferObject {
         glm::mat4 MVP = glm::mat4(1.0f);
         float Phi = 0.0f;
     };
-    UniformBufferObject UBOData;
+    UniformBufferObject mUBOData;
 };

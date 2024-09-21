@@ -22,18 +22,41 @@ std::vector<VkVertexInputAttributeDescription> HelloTriangleRenderer::Vertex::
     return attributeDescriptions;
 }
 
+HelloTriangleRenderer::HelloTriangleRenderer(VulkanContext &ctx,
+                                             std::function<void()> callback)
+    : RendererBase(ctx, callback)
+{
+    CreateDescriptorSetLayout();
+    CreateGraphicsPipelines();
+    CreateSwapchainResources();
+    CreateVertexBuffers();
+    CreateUniformBuffers();
+    CreateDescriptorPool();
+    CreateDescriptorSets();
+}
+
+HelloTriangleRenderer::~HelloTriangleRenderer()
+{
+    DestroySwapchainResources();
+
+    Buffer::DestroyBuffer(ctx, mVertexBuffer);
+
+    vkDestroyPipeline(ctx.Device, mGraphicsPipeline.Handle, nullptr);
+    vkDestroyPipelineLayout(ctx.Device, mGraphicsPipeline.Layout, nullptr);
+
+    for (auto &uniformBuffer : mUniformBuffers)
+        uniformBuffer.OnDestroy(ctx);
+
+    vkDestroyDescriptorPool(ctx.Device, mDescriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(ctx.Device, mDescriptorSetLayout, nullptr);
+}
+
 void HelloTriangleRenderer::OnImGui()
 {
     ImGui::Begin("Hello Triangle");
     callback();
-    ImGui::SliderFloat("Rotation", &UBOData.Phi, 0.0f, 6.28f);
+    ImGui::SliderFloat("Rotation", &mUBOData.Phi, 0.0f, 6.28f);
     ImGui::End();
-}
-
-void HelloTriangleRenderer::CreateResources()
-{
-    CreateDescriptorSetLayout();
-    CreateGraphicsPipelines();
 }
 
 void HelloTriangleRenderer::CreateSwapchainResources()
@@ -42,31 +65,9 @@ void HelloTriangleRenderer::CreateSwapchainResources()
     CreateCommandBuffers();
 }
 
-void HelloTriangleRenderer::CreateDependentResources()
-{
-    CreateVertexBuffers();
-    CreateUniformBuffers();
-    CreateDescriptorPool();
-    CreateDescriptorSets();
-}
-
-void HelloTriangleRenderer::DestroyResources()
-{
-    Buffer::DestroyBuffer(ctx, VertexBuffer);
-
-    vkDestroyPipeline(ctx.Device, GraphicsPipeline.Handle, nullptr);
-    vkDestroyPipelineLayout(ctx.Device, GraphicsPipeline.Layout, nullptr);
-
-    for (auto &uniformBuffer : UniformBuffers)
-        uniformBuffer.OnDestroy(ctx);
-
-    vkDestroyDescriptorPool(ctx.Device, DescriptorPool, nullptr);
-    vkDestroyDescriptorSetLayout(ctx.Device, DescriptorSetLayout, nullptr);
-}
-
 void HelloTriangleRenderer::DestroySwapchainResources()
 {
-    vkDestroyCommandPool(ctx.Device, CommandPool, nullptr);
+    vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr);
 }
 
 void HelloTriangleRenderer::CreateDescriptorSetLayout()
@@ -84,7 +85,7 @@ void HelloTriangleRenderer::CreateDescriptorSetLayout()
     layoutInfo.pBindings = &uboLayoutBinding;
 
     if (vkCreateDescriptorSetLayout(ctx.Device, &layoutInfo, nullptr,
-                                    &DescriptorSetLayout) != VK_SUCCESS)
+                                    &mDescriptorSetLayout) != VK_SUCCESS)
         throw std::runtime_error("Failed to create descriptor set layout!");
 }
 
@@ -99,15 +100,15 @@ void HelloTriangleRenderer::CreateGraphicsPipelines()
         utils::GetBindingDescription<Vertex>(0, VK_VERTEX_INPUT_RATE_VERTEX);
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
 
-    GraphicsPipeline = PipelineBuilder()
-                           .SetShaderStages(shaderStages)
-                           .SetVertexInput(bindingDescription, attributeDescriptions)
-                           .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-                           .SetPolygonMode(VK_POLYGON_MODE_FILL)
-                           .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
-                           .DisableDepthTest()
-                           .SetSwapchainColorFormat(ctx.Swapchain.image_format)
-                           .Build(ctx, DescriptorSetLayout);
+    mGraphicsPipeline = PipelineBuilder()
+                            .SetShaderStages(shaderStages)
+                            .SetVertexInput(bindingDescription, attributeDescriptions)
+                            .SetTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
+                            .SetPolygonMode(VK_POLYGON_MODE_FILL)
+                            .SetCullMode(VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE)
+                            .DisableDepthTest()
+                            .SetSwapchainColorFormat(ctx.Swapchain.image_format)
+                            .Build(ctx, mDescriptorSetLayout);
 }
 
 void HelloTriangleRenderer::CreateCommandPools()
@@ -118,32 +119,32 @@ void HelloTriangleRenderer::CreateCommandPools()
     pool_info.queueFamilyIndex =
         ctx.Device.get_queue_index(vkb::QueueType::graphics).value();
 
-    if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &CommandPool) != VK_SUCCESS)
+    if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &mCommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a command pool!");
 }
 
 void HelloTriangleRenderer::CreateCommandBuffers()
 {
-    CommandBuffers.resize(SwapchainImageViews.size());
+    mCommandBuffers.resize(mSwapchainImageViews.size());
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.commandPool = CommandPool;
+    allocInfo.commandPool = mCommandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = (uint32_t)CommandBuffers.size();
+    allocInfo.commandBufferCount = static_cast<uint32_t>(mCommandBuffers.size());
 
-    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, CommandBuffers.data()) !=
+    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, mCommandBuffers.data()) !=
         VK_SUCCESS)
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
 void HelloTriangleRenderer::SubmitCommandBuffers()
 {
-    auto &imageAcquiredSemaphore = ImageAcquiredSemaphores[FrameSemaphoreIndex];
-    auto &renderCompleteSemaphore = RenderCompletedSemaphores[FrameSemaphoreIndex];
+    auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
+    auto &renderCompleteSemaphore = mRenderCompletedSemaphores[mFrameSemaphoreIndex];
 
-    vkResetCommandBuffer(CommandBuffers[FrameSemaphoreIndex], 0);
-    RecordCommandBuffer(CommandBuffers[FrameSemaphoreIndex], FrameImageIndex);
+    vkResetCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], 0);
+    RecordCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], mFrameImageIndex);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -155,14 +156,14 @@ void HelloTriangleRenderer::SubmitCommandBuffers()
     submitInfo.pWaitDstStageMask = wait_stages;
 
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &CommandBuffers[FrameSemaphoreIndex];
+    submitInfo.pCommandBuffers = &mCommandBuffers[mFrameSemaphoreIndex];
 
     VkSemaphore signal_semaphores[] = {renderCompleteSemaphore};
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signal_semaphores;
 
-    if (vkQueueSubmit(GraphicsQueue, 1, &submitInfo,
-                      InFlightFences[FrameSemaphoreIndex]) != VK_SUCCESS)
+    if (vkQueueSubmit(mGraphicsQueue, 1, &submitInfo,
+                      mInFlightFences[mFrameSemaphoreIndex]) != VK_SUCCESS)
     {
         throw std::runtime_error("Failed to submit draw command buffer!");
     }
@@ -179,11 +180,11 @@ void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
-    utils::ImageBarrierColorToRender(commandBuffer, SwapchainImages[imageIndex]);
+    utils::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
 
     VkRenderingAttachmentInfoKHR colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-    colorAttachment.imageView = SwapchainImageViews[imageIndex];
+    colorAttachment.imageView = mSwapchainImageViews[imageIndex];
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -200,37 +201,25 @@ void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
     {
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          GraphicsPipeline.Handle);
+                          mGraphicsPipeline.Handle);
 
-        VkViewport viewport = {};
-        viewport.x = 0.0f;
-        viewport.y = 0.0f;
-        viewport.width = static_cast<float>(ctx.Swapchain.extent.width);
-        viewport.height = static_cast<float>(ctx.Swapchain.extent.height);
-        viewport.minDepth = 0.0f;
-        viewport.maxDepth = 1.0f;
-        vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+        utils::ViewportScissorDefaultBehaviour(ctx, commandBuffer);
 
-        VkRect2D scissor = {};
-        scissor.offset = {0, 0};
-        scissor.extent = ctx.Swapchain.extent;
-        vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-        VkBuffer vertexBuffers[] = {VertexBuffer.Handle};
+        VkBuffer vertexBuffers[] = {mVertexBuffer.Handle};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                GraphicsPipeline.Layout, 0, 1,
-                                &DescriptorSets[FrameSemaphoreIndex], 0, nullptr);
+                                mGraphicsPipeline.Layout, 0, 1,
+                                &mDescriptorSets[mFrameSemaphoreIndex], 0, nullptr);
 
-        vkCmdDraw(commandBuffer, static_cast<uint32_t>(VertexCount), 1, 0, 0);
+        vkCmdDraw(commandBuffer, static_cast<uint32_t>(mVertexCount), 1, 0, 0);
 
         ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
     }
     vkCmdEndRendering(commandBuffer);
 
-    utils::ImageBarrierColorToPresent(commandBuffer, SwapchainImages[imageIndex]);
+    utils::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");
@@ -248,27 +237,27 @@ void HelloTriangleRenderer::CreateVertexBuffers()
     };
     // clang-format on
 
-    VertexCount = vertices.size();
+    mVertexCount = vertices.size();
 
     GPUBufferInfo info{
-        .Queue = GraphicsQueue,
-        .Pool = CommandPool,
+        .Queue = mGraphicsQueue,
+        .Pool = mCommandPool,
         .Data = vertices.data(),
-        .Size = VertexCount * sizeof(Vertex),
+        .Size = mVertexCount * sizeof(Vertex),
         .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
         .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     };
 
-    VertexBuffer = Buffer::CreateGPUBuffer(ctx, info);
+    mVertexBuffer = Buffer::CreateGPUBuffer(ctx, info);
 }
 
 void HelloTriangleRenderer::CreateUniformBuffers()
 {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-    UniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    mUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
-    for (auto &uniformBuffer : UniformBuffers)
+    for (auto &uniformBuffer : mUniformBuffers)
         uniformBuffer.OnInit(ctx, bufferSize);
 }
 
@@ -286,10 +275,10 @@ void HelloTriangleRenderer::UpdateUniformBuffer()
 
     auto proj = glm::ortho(-sx, sx, -sy, sy, -1.0f, 1.0f);
 
-    UBOData.MVP = proj;
+    mUBOData.MVP = proj;
 
-    auto &uniformBuffer = UniformBuffers[FrameSemaphoreIndex];
-    uniformBuffer.UploadData(&UBOData, sizeof(UBOData));
+    auto &uniformBuffer = mUniformBuffers[mFrameSemaphoreIndex];
+    uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
 }
 
 void HelloTriangleRenderer::CreateDescriptorPool()
@@ -304,36 +293,37 @@ void HelloTriangleRenderer::CreateDescriptorPool()
     poolInfo.pPoolSizes = &poolSize;
     poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-    if (vkCreateDescriptorPool(ctx.Device, &poolInfo, nullptr, &DescriptorPool) !=
+    if (vkCreateDescriptorPool(ctx.Device, &poolInfo, nullptr, &mDescriptorPool) !=
         VK_SUCCESS)
         throw std::runtime_error("Failed to create descriptor pool!");
 }
 
 void HelloTriangleRenderer::CreateDescriptorSets()
 {
-    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, DescriptorSetLayout);
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
+                                               mDescriptorSetLayout);
     VkDescriptorSetAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = DescriptorPool;
+    allocInfo.descriptorPool = mDescriptorPool;
     allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
     allocInfo.pSetLayouts = layouts.data();
 
-    DescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+    mDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
 
-    if (vkAllocateDescriptorSets(ctx.Device, &allocInfo, DescriptorSets.data()) !=
+    if (vkAllocateDescriptorSets(ctx.Device, &allocInfo, mDescriptorSets.data()) !=
         VK_SUCCESS)
         throw std::runtime_error("Failed to allocate descriptor sets!");
 
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = UniformBuffers[i].Handle();
+        bufferInfo.buffer = mUniformBuffers[i].Handle();
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 
         VkWriteDescriptorSet descriptorWrite{};
         descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet = DescriptorSets[i];
+        descriptorWrite.dstSet = mDescriptorSets[i];
         descriptorWrite.dstBinding = 0;
         descriptorWrite.dstArrayElement = 0;
         descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;

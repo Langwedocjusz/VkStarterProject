@@ -10,23 +10,14 @@
 
 class TexturedCubeRenderer : public RendererBase {
   public:
-    TexturedCubeRenderer(VulkanContext &ctx, std::function<void()> callback)
-        : RendererBase(ctx, callback)
-    {
-    }
-    ~TexturedCubeRenderer()
-    {
-        VulkanCleanup();
-    }
+    TexturedCubeRenderer(VulkanContext &ctx, std::function<void()> callback);
+
+    ~TexturedCubeRenderer();
 
     void OnImGui() override;
 
   private:
-    void CreateResources() override;
     void CreateSwapchainResources() override;
-    void CreateDependentResources() override;
-
-    void DestroyResources() override;
     void DestroySwapchainResources() override;
 
     void SubmitCommandBuffers() override;
@@ -49,21 +40,19 @@ class TexturedCubeRenderer : public RendererBase {
     void CreateDescriptorPool();
     void CreateDescriptorSets();
 
-    void CreateTextureImage();
-    void CreateTextureImageView();
-    void CreateTextureSampler();
+    void CreateTextureResources();
 
     void CreateDepthResources();
 
   private:
-    VkDescriptorSetLayout DescriptorSetLayout;
-    VkDescriptorPool DescriptorPool;
-    std::vector<VkDescriptorSet> DescriptorSets;
+    VkDescriptorSetLayout mDescriptorSetLayout;
+    VkDescriptorPool mDescriptorPool;
+    std::vector<VkDescriptorSet> mDescriptorSets;
 
-    Pipeline GraphicsPipeline;
+    Pipeline mGraphicsPipeline;
 
-    VkCommandPool CommandPool;
-    std::vector<VkCommandBuffer> CommandBuffers;
+    VkCommandPool mCommandPool;
+    std::vector<VkCommandBuffer> mCommandBuffers;
 
     struct Vertex {
         glm::vec3 Pos;
@@ -72,24 +61,24 @@ class TexturedCubeRenderer : public RendererBase {
         static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
     };
 
-    Buffer VertexBuffer;
-    size_t VertexCount;
+    Buffer mVertexBuffer;
+    size_t mVertexCount;
 
-    Buffer IndexBuffer;
-    size_t IndexCount;
+    Buffer mIndexBuffer;
+    size_t mIndexCount;
 
-    std::vector<MappedUniformBuffer> UniformBuffers;
+    std::vector<MappedUniformBuffer> mUniformBuffers;
 
     struct UniformBufferObject {
         glm::mat4 MVP = glm::mat4(1.0f);
         float Phi = 0.0f;
     };
-    UniformBufferObject UBOData;
+    UniformBufferObject mUBOData;
 
-    Image TextureImage;
-    VkImageView TextureImageView;
-    VkSampler TextureSampler;
+    Image mTextureImage;
+    VkImageView mTextureImageView;
+    VkSampler mTextureSampler;
 
-    Image DepthImage;
-    VkImageView DepthImageView;
+    Image mDepthImage;
+    VkImageView mDepthImageView;
 };

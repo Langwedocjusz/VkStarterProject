@@ -96,7 +96,7 @@ Buffer Buffer::CreateGPUBuffer(VulkanContext &ctx, GPUBufferInfo info)
     Buffer stagingBuffer = Buffer::CreateStagingBuffer(ctx, info.Size);
     UploadToBuffer(ctx, stagingBuffer, info.Data, info.Size);
 
-    utils::CopyBufferInfo cp_info{
+    CopyBufferInfo cp_info{
         .Queue = info.Queue,
         .Pool = info.Pool,
         .Src = stagingBuffer.Handle,
@@ -104,11 +104,24 @@ Buffer Buffer::CreateGPUBuffer(VulkanContext &ctx, GPUBufferInfo info)
         .Size = info.Size,
     };
 
-    utils::CopyBuffer(ctx, cp_info);
+    CopyBuffer(ctx, cp_info);
 
     DestroyBuffer(ctx, stagingBuffer);
 
     return buff;
+}
+
+void Buffer::CopyBuffer(VulkanContext &ctx, CopyBufferInfo info)
+{
+    VkCommandBuffer commandBuffer = utils::BeginSingleTimeCommands(ctx, info.Pool);
+
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+    copyRegion.size = info.Size;
+    vkCmdCopyBuffer(commandBuffer, info.Src, info.Dst, 1, &copyRegion);
+
+    utils::EndSingleTimeCommands(ctx, info.Queue, info.Pool, commandBuffer);
 }
 
 void MappedUniformBuffer::OnInit(VulkanContext &ctx, VkDeviceSize size)

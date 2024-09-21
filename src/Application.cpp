@@ -130,6 +130,5 @@ void Application::RecreateRenderer(bool first_run)
     }
     }
 
-    m_Renderer->OnInit();
     m_ImGuiCtx.OnInit(m_Ctx, m_Renderer.get());
 }

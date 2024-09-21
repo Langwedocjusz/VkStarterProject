@@ -5,16 +5,21 @@
 RendererBase::RendererBase(VulkanContext &context, std::function<void()> cb)
     : ctx(context), callback(cb)
 {
+    CreateQueues();
+    CreateSyncObjects();
+    CreateSwapchainViews();
 }
 
-void RendererBase::OnInit()
+RendererBase::~RendererBase()
 {
-    CreateQueues();
-    CreateResources();
-    CreateSwapchainViews();
-    CreateSwapchainResources();
-    CreateDependentResources();
-    CreateSyncObjects();
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    {
+        ctx.Disp.destroySemaphore(mRenderCompletedSemaphores[i], nullptr);
+        ctx.Disp.destroySemaphore(mImageAcquiredSemaphores[i], nullptr);
+        ctx.Disp.destroyFence(mInFlightFences[i], nullptr);
+    }
+
+    DestroySwapchainViews();
 }
 
 void RendererBase::OnUpdate()
@@ -33,7 +38,7 @@ void RendererBase::OnRender()
 
 RenderDataForImGui RendererBase::getImGuiData() const
 {
-    return RenderDataForImGui{.Queue = GraphicsQueue,
+    return RenderDataForImGui{.Queue = mGraphicsQueue,
                               .FramesInFlight =
                                   static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),
                               // Temporary, will need to actually fetch it from
@@ -49,7 +54,7 @@ void RendererBase::CreateQueues()
         auto err_msg = "Failed to get graphics queue: " + gq.error().message();
         throw std::runtime_error(err_msg);
     }
-    GraphicsQueue = gq.value();
+    mGraphicsQueue = gq.value();
 
     auto pq = ctx.Device.get_queue(vkb::QueueType::present);
     if (!pq.has_value())
@@ -57,14 +62,14 @@ void RendererBase::CreateQueues()
         auto err_msg = "Failed to get present queue: " + pq.error().message();
         throw std::runtime_error(err_msg);
     }
-    PresentQueue = pq.value();
+    mPresentQueue = pq.value();
 }
 
 void RendererBase::CreateSyncObjects()
 {
-    ImageAcquiredSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    RenderCompletedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
-    InFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+    mImageAcquiredSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    mRenderCompletedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+    mInFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkSemaphoreCreateInfo semaphore_info = {};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -76,36 +81,37 @@ void RendererBase::CreateSyncObjects()
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         if (ctx.Disp.createSemaphore(&semaphore_info, nullptr,
-                                     &ImageAcquiredSemaphores[i]) != VK_SUCCESS ||
+                                     &mImageAcquiredSemaphores[i]) != VK_SUCCESS ||
             ctx.Disp.createSemaphore(&semaphore_info, nullptr,
-                                     &RenderCompletedSemaphores[i]) != VK_SUCCESS ||
-            ctx.Disp.createFence(&fence_info, nullptr, &InFlightFences[i]) != VK_SUCCESS)
+                                     &mRenderCompletedSemaphores[i]) != VK_SUCCESS ||
+            ctx.Disp.createFence(&fence_info, nullptr, &mInFlightFences[i]) != VK_SUCCESS)
             throw std::runtime_error("Failed to create sync objects");
     }
 }
 
 void RendererBase::CreateSwapchainViews()
 {
-    SwapchainImages = ctx.Swapchain.get_images().value();
-    SwapchainImageViews = ctx.Swapchain.get_image_views().value();
+    mSwapchainImages = ctx.Swapchain.get_images().value();
+    mSwapchainImageViews = ctx.Swapchain.get_image_views().value();
 }
 
 void RendererBase::DestroySwapchainViews()
 {
-    ctx.Swapchain.destroy_image_views(SwapchainImageViews);
+    ctx.Swapchain.destroy_image_views(mSwapchainImageViews);
 }
 
 void RendererBase::DrawFrame()
 {
-    ctx.Disp.waitForFences(1, &InFlightFences[FrameSemaphoreIndex], VK_TRUE, UINT64_MAX);
+    ctx.Disp.waitForFences(1, &mInFlightFences[mFrameSemaphoreIndex], VK_TRUE,
+                           UINT64_MAX);
 
-    auto &imageAcquiredSemaphore = ImageAcquiredSemaphores[FrameSemaphoreIndex];
+    auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
 
     if (ctx.SwapchainOk)
     {
         VkResult result = ctx.Disp.acquireNextImageKHR(ctx.Swapchain, UINT64_MAX,
                                                        imageAcquiredSemaphore,
-                                                       VK_NULL_HANDLE, &FrameImageIndex);
+                                                       VK_NULL_HANDLE, &mFrameImageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR)
         {
@@ -120,7 +126,7 @@ void RendererBase::DrawFrame()
     if (!ctx.SwapchainOk)
         return;
 
-    ctx.Disp.resetFences(1, &InFlightFences[FrameSemaphoreIndex]);
+    ctx.Disp.resetFences(1, &mInFlightFences[mFrameSemaphoreIndex]);
 
     SubmitCommandBuffers();
 }
@@ -133,7 +139,7 @@ void RendererBase::PresentFrame()
     VkPresentInfoKHR present_info = {};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
-    VkSemaphore signal_semaphores[] = {RenderCompletedSemaphores[FrameSemaphoreIndex]};
+    VkSemaphore signal_semaphores[] = {mRenderCompletedSemaphores[mFrameSemaphoreIndex]};
     present_info.waitSemaphoreCount = 1;
     present_info.pWaitSemaphores = signal_semaphores;
 
@@ -141,9 +147,9 @@ void RendererBase::PresentFrame()
     present_info.swapchainCount = 1;
     present_info.pSwapchains = swapChains;
 
-    present_info.pImageIndices = &FrameImageIndex;
+    present_info.pImageIndices = &mFrameImageIndex;
 
-    VkResult result = ctx.Disp.queuePresentKHR(PresentQueue, &present_info);
+    VkResult result = ctx.Disp.queuePresentKHR(mPresentQueue, &present_info);
     if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
     {
         ctx.SwapchainOk = false;
@@ -154,7 +160,7 @@ void RendererBase::PresentFrame()
         throw std::runtime_error("Failed to present swapchain image!");
     }
 
-    FrameSemaphoreIndex = (FrameSemaphoreIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+    mFrameSemaphoreIndex = (mFrameSemaphoreIndex + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void RendererBase::RecreateSwapchain()
@@ -172,18 +178,4 @@ void RendererBase::RecreateSwapchain()
 
     // DrawFrame();
     // PresentFrame();
-}
-
-void RendererBase::VulkanCleanup()
-{
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        ctx.Disp.destroySemaphore(RenderCompletedSemaphores[i], nullptr);
-        ctx.Disp.destroySemaphore(ImageAcquiredSemaphores[i], nullptr);
-        ctx.Disp.destroyFence(InFlightFences[i], nullptr);
-    }
-
-    DestroySwapchainResources();
-    DestroySwapchainViews();
-    DestroyResources();
 }

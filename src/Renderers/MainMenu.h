@@ -6,23 +6,14 @@
 
 class MainMenuRenderer : public RendererBase {
   public:
-    MainMenuRenderer(VulkanContext &ctx, std::function<void()> callback)
-        : RendererBase(ctx, callback)
-    {
-    }
-    ~MainMenuRenderer()
-    {
-        VulkanCleanup();
-    }
+    MainMenuRenderer(VulkanContext &ctx, std::function<void()> callback);
+
+    ~MainMenuRenderer();
 
     void OnImGui() override;
 
   private:
-    void CreateResources() override;
     void CreateSwapchainResources() override;
-    void CreateDependentResources() override;
-
-    void DestroyResources() override;
     void DestroySwapchainResources() override;
 
     void SubmitCommandBuffers() override;
@@ -34,6 +25,6 @@ class MainMenuRenderer : public RendererBase {
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
   private:
-    VkCommandPool CommandPool;
-    std::vector<VkCommandBuffer> CommandBuffers;
+    VkCommandPool mCommandPool;
+    std::vector<VkCommandBuffer> mCommandBuffers;
 };
