@@ -2,6 +2,7 @@
 
 #include "Utils.h"
 
+#include "Descriptor.h"
 #include "ImageLoaders.h"
 #include "ImageView.h"
 #include "Sampler.h"
@@ -31,15 +32,14 @@ TexturedCubeRenderer::TexturedCubeRenderer(VulkanContext &ctx,
                                            std::function<void()> callback)
     : RendererBase(ctx, callback)
 {
-    CreateDescriptorSetLayout();
+    CreateDescriptorSets();
     CreateGraphicsPipelines();
     CreateSwapchainResources();
     CreateTextureResources();
     CreateVertexBuffers();
     CreateIndexBuffers();
     CreateUniformBuffers();
-    CreateDescriptorPool();
-    CreateDescriptorSets();
+    UpdateDescriptorSets();
 }
 
 TexturedCubeRenderer::~TexturedCubeRenderer()
@@ -86,33 +86,32 @@ void TexturedCubeRenderer::DestroySwapchainResources()
     Image::DestroyImage(ctx, mDepthImage);
 }
 
-void TexturedCubeRenderer::CreateDescriptorSetLayout()
+void TexturedCubeRenderer::CreateDescriptorSets()
 {
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding = 0;
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount = 1;
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    uboLayoutBinding.pImmutableSamplers = nullptr;
+    auto numFrames = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
-    samplerLayoutBinding.binding = 1;
-    samplerLayoutBinding.descriptorCount = 1;
-    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    samplerLayoutBinding.pImmutableSamplers = nullptr;
-    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    //Descriptor layout
+    mDescriptorSetLayout =
+        DescriptorSetLayoutBuilder()
+            .AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+            .AddBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        VK_SHADER_STAGE_FRAGMENT_BIT)
+            .Build(ctx);
 
-    std::array<VkDescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding,
-                                                            samplerLayoutBinding};
+    //Descriptor pool
+    std::vector<PoolCount> poolCounts{
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, numFrames},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, numFrames},
+    };
+    uint32_t maxSets = numFrames;
 
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
-    layoutInfo.pBindings = bindings.data();
+    mDescriptorPool = Descriptor::InitPool(ctx, maxSets, poolCounts);
 
-    if (vkCreateDescriptorSetLayout(ctx.Device, &layoutInfo, nullptr,
-                                    &mDescriptorSetLayout) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create descriptor set layout!");
+    //Descriptor sets allocation
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
+                                               mDescriptorSetLayout);
+
+    mDescriptorSets = Descriptor::Allocate(ctx, mDescriptorPool, layouts);
 }
 
 void TexturedCubeRenderer::CreateGraphicsPipelines()
@@ -375,42 +374,9 @@ void TexturedCubeRenderer::UpdateUniformBuffer()
     uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
 }
 
-void TexturedCubeRenderer::CreateDescriptorPool()
+void TexturedCubeRenderer::UpdateDescriptorSets()
 {
-    std::array<VkDescriptorPoolSize, 2> poolSizes{};
-    poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSizes[0].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    poolSizes[1].descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-    poolInfo.pPoolSizes = poolSizes.data();
-    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-    if (vkCreateDescriptorPool(ctx.Device, &poolInfo, nullptr, &mDescriptorPool) !=
-        VK_SUCCESS)
-        throw std::runtime_error("Failed to create descriptor pool!");
-}
-
-void TexturedCubeRenderer::CreateDescriptorSets()
-{
-    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
-                                               mDescriptorSetLayout);
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = mDescriptorPool;
-    allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-    allocInfo.pSetLayouts = layouts.data();
-
-    mDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-
-    if (vkAllocateDescriptorSets(ctx.Device, &allocInfo, mDescriptorSets.data()) !=
-        VK_SUCCESS)
-        throw std::runtime_error("Failed to allocate descriptor sets!");
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    for (size_t i = 0; i < mDescriptorSets.size(); i++)
     {
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = mUniformBuffers[i].Handle();

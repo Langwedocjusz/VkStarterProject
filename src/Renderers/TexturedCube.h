@@ -23,7 +23,7 @@ class TexturedCubeRenderer : public RendererBase {
     void SubmitCommandBuffers() override;
 
   private:
-    void CreateDescriptorSetLayout();
+    void CreateDescriptorSets();
     void CreateGraphicsPipelines();
 
     void CreateCommandPools();
@@ -37,8 +37,7 @@ class TexturedCubeRenderer : public RendererBase {
     void CreateUniformBuffers();
     void UpdateUniformBuffer();
 
-    void CreateDescriptorPool();
-    void CreateDescriptorSets();
+    void UpdateDescriptorSets();
 
     void CreateTextureResources();
 

@@ -22,7 +22,7 @@ class HelloTriangleRenderer : public RendererBase {
     void SubmitCommandBuffers() override;
 
   private:
-    void CreateDescriptorSetLayout();
+    void CreateDescriptorSets();
     void CreateRenderPasses();
     void CreateGraphicsPipelines();
 
@@ -37,8 +37,7 @@ class HelloTriangleRenderer : public RendererBase {
     void CreateUniformBuffers();
     void UpdateUniformBuffer();
 
-    void CreateDescriptorPool();
-    void CreateDescriptorSets();
+    void UpdateDescriptorSets();
 
   private:
     VkDescriptorSetLayout mDescriptorSetLayout;

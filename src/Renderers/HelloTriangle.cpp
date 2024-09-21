@@ -1,5 +1,6 @@
 #include "HelloTriangle.h"
 
+#include "Descriptor.h"
 #include "Shader.h"
 #include "Utils.h"
 
@@ -26,13 +27,12 @@ HelloTriangleRenderer::HelloTriangleRenderer(VulkanContext &ctx,
                                              std::function<void()> callback)
     : RendererBase(ctx, callback)
 {
-    CreateDescriptorSetLayout();
+    CreateDescriptorSets();
     CreateGraphicsPipelines();
     CreateSwapchainResources();
     CreateVertexBuffers();
     CreateUniformBuffers();
-    CreateDescriptorPool();
-    CreateDescriptorSets();
+    UpdateDescriptorSets();
 }
 
 HelloTriangleRenderer::~HelloTriangleRenderer()
@@ -70,23 +70,29 @@ void HelloTriangleRenderer::DestroySwapchainResources()
     vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr);
 }
 
-void HelloTriangleRenderer::CreateDescriptorSetLayout()
+void HelloTriangleRenderer::CreateDescriptorSets()
 {
-    VkDescriptorSetLayoutBinding uboLayoutBinding{};
-    uboLayoutBinding.binding = 0;
-    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    uboLayoutBinding.descriptorCount = 1;
-    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    uboLayoutBinding.pImmutableSamplers = nullptr;
+    auto numFrames = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-    VkDescriptorSetLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layoutInfo.bindingCount = 1;
-    layoutInfo.pBindings = &uboLayoutBinding;
+    //Descriptor layout
+    mDescriptorSetLayout =
+        DescriptorSetLayoutBuilder()
+            .AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+            .Build(ctx);
 
-    if (vkCreateDescriptorSetLayout(ctx.Device, &layoutInfo, nullptr,
-                                    &mDescriptorSetLayout) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create descriptor set layout!");
+    //Descriptor pool
+    std::vector<PoolCount> poolCounts{
+        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, numFrames},
+    };
+    uint32_t maxSets = numFrames;
+
+    mDescriptorPool = Descriptor::InitPool(ctx, maxSets, poolCounts);
+
+    //Descriptor sets allocation
+    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
+                                               mDescriptorSetLayout);
+
+    mDescriptorSets = Descriptor::Allocate(ctx, mDescriptorPool, layouts);
 }
 
 void HelloTriangleRenderer::CreateGraphicsPipelines()
@@ -281,40 +287,9 @@ void HelloTriangleRenderer::UpdateUniformBuffer()
     uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
 }
 
-void HelloTriangleRenderer::CreateDescriptorPool()
+void HelloTriangleRenderer::UpdateDescriptorSets()
 {
-    VkDescriptorPoolSize poolSize{};
-    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-    VkDescriptorPoolCreateInfo poolInfo{};
-    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes = &poolSize;
-    poolInfo.maxSets = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-
-    if (vkCreateDescriptorPool(ctx.Device, &poolInfo, nullptr, &mDescriptorPool) !=
-        VK_SUCCESS)
-        throw std::runtime_error("Failed to create descriptor pool!");
-}
-
-void HelloTriangleRenderer::CreateDescriptorSets()
-{
-    std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
-                                               mDescriptorSetLayout);
-    VkDescriptorSetAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-    allocInfo.descriptorPool = mDescriptorPool;
-    allocInfo.descriptorSetCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
-    allocInfo.pSetLayouts = layouts.data();
-
-    mDescriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
-
-    if (vkAllocateDescriptorSets(ctx.Device, &allocInfo, mDescriptorSets.data()) !=
-        VK_SUCCESS)
-        throw std::runtime_error("Failed to allocate descriptor sets!");
-
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+    for (size_t i = 0; i < mDescriptorSets.size(); i++)
     {
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = mUniformBuffers[i].Handle();
