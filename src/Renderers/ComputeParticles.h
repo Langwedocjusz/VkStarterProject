@@ -14,18 +14,17 @@ class ComputeParticleRenderer : public RendererBase {
 
     ~ComputeParticleRenderer();
 
+    void OnUpdate() override;
     void OnImGui() override;
+    void OnRenderImpl() override;
 
   private:
     void CreateSwapchainResources() override;
     void DestroySwapchainResources() override;
 
-    void SubmitCommandBuffers() override;
-
-    void SubmitCommandBuffersEarly() override;
-
   private:
     void CreateDescriptorSets();
+    void UpdateDescriptorSets();
     void CreateGraphicsPipelines();
     void CreateComputePipelines();
 
@@ -33,17 +32,13 @@ class ComputeParticleRenderer : public RendererBase {
     void CreateCommandBuffers();
     void CreateComputeCommandBuffers();
 
-    void CreateMoreSyncObjects();
+    void CreateSyncObjects();
+
+    void CreateVertexBuffers();
+    void CreateUniformBuffers();
 
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
     void RecordComputeCommandBuffer(VkCommandBuffer commandBuffer);
-
-    void CreateVertexBuffers();
-
-    void CreateUniformBuffers();
-    void UpdateUniformBuffer();
-
-    void UpdateDescriptorSets();
 
   private:
     VkDescriptorSetLayout mDescriptorSetLayout;

@@ -23,6 +23,38 @@ void MainMenuRenderer::OnImGui()
     ImGui::End();
 }
 
+void MainMenuRenderer::OnRenderImpl()
+{
+    auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
+    auto &renderCompleteSemaphore = mRenderCompletedSemaphores[mFrameSemaphoreIndex];
+    auto &fence = mInFlightFences[mFrameSemaphoreIndex];
+
+    vkWaitForFences(ctx.Device, 1, &fence, VK_TRUE, UINT64_MAX);
+
+    common::AcquireNextImage(ctx, imageAcquiredSemaphore, mFrameImageIndex);
+
+    if (!ctx.SwapchainOk)
+        return;
+
+    vkResetFences(ctx.Device, 1, &fence);
+
+    // DrawFrame
+    {
+        auto &buffer = mCommandBuffers[mFrameSemaphoreIndex];
+
+        vkResetCommandBuffer(buffer, 0);
+        RecordCommandBuffer(buffer, mFrameImageIndex);
+
+        auto buffers = std::array<VkCommandBuffer, 1>{buffer};
+
+        common::SubmitGraphicsQueueDefault(mGraphicsQueue, buffers, fence,
+                                           imageAcquiredSemaphore,
+                                           renderCompleteSemaphore);
+    }
+
+    common::PresentFrame(ctx, mPresentQueue, renderCompleteSemaphore, mFrameImageIndex);
+}
+
 void MainMenuRenderer::CreateSwapchainResources()
 {
     CreateCommandPools();
@@ -48,7 +80,7 @@ void MainMenuRenderer::CreateCommandPools()
 
 void MainMenuRenderer::CreateCommandBuffers()
 {
-    mCommandBuffers.resize(mSwapchainImageViews.size());
+    mCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -61,37 +93,6 @@ void MainMenuRenderer::CreateCommandBuffers()
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
-void MainMenuRenderer::SubmitCommandBuffers()
-{
-    auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
-    auto &renderCompleteSemaphore = mRenderCompletedSemaphores[mFrameSemaphoreIndex];
-
-    vkResetCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], 0);
-    RecordCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], mFrameImageIndex);
-
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    VkSemaphore wait_semaphores[] = {imageAcquiredSemaphore};
-    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = wait_semaphores;
-    submitInfo.pWaitDstStageMask = wait_stages;
-
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &mCommandBuffers[mFrameSemaphoreIndex];
-
-    VkSemaphore signal_semaphores[] = {renderCompleteSemaphore};
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signal_semaphores;
-
-    if (vkQueueSubmit(mGraphicsQueue, 1, &submitInfo,
-                      mInFlightFences[mFrameSemaphoreIndex]) != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to submit draw command buffer!");
-    }
-}
-
 void MainMenuRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
                                            uint32_t imageIndex)
 {
@@ -101,11 +102,11 @@ void MainMenuRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
-    common::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToRender(commandBuffer, ctx.SwapchainImages[imageIndex]);
 
     VkRenderingAttachmentInfoKHR colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-    colorAttachment.imageView = mSwapchainImageViews[imageIndex];
+    colorAttachment.imageView = ctx.SwapchainImageViews[imageIndex];
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -127,7 +128,7 @@ void MainMenuRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     }
     vkCmdEndRendering(commandBuffer);
 
-    common::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToPresent(commandBuffer, ctx.SwapchainImages[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");

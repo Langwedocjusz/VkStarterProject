@@ -54,7 +54,23 @@ HelloTriangleRenderer::~HelloTriangleRenderer()
 
 void HelloTriangleRenderer::OnUpdate()
 {
-    UpdateUniformBuffer();
+    // Update Uniform buffer data:
+    auto width = static_cast<float>(ctx.Swapchain.extent.width);
+    auto height = static_cast<float>(ctx.Swapchain.extent.height);
+
+    float sx = 1.0f, sy = 1.0f;
+
+    if (height < width)
+        sx = width / height;
+    else
+        sy = height / width;
+
+    auto proj = glm::ortho(-sx, sx, -sy, sy, -1.0f, 1.0f);
+
+    mUBOData.MVP = proj;
+
+    auto &uniformBuffer = mUniformBuffers[mFrameSemaphoreIndex];
+    uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
 }
 
 void HelloTriangleRenderer::OnImGui()
@@ -63,6 +79,38 @@ void HelloTriangleRenderer::OnImGui()
     callback();
     ImGui::SliderFloat("Rotation", &mUBOData.Phi, 0.0f, 6.28f);
     ImGui::End();
+}
+
+void HelloTriangleRenderer::OnRenderImpl()
+{
+    auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
+    auto &renderCompleteSemaphore = mRenderCompletedSemaphores[mFrameSemaphoreIndex];
+    auto &fence = mInFlightFences[mFrameSemaphoreIndex];
+
+    vkWaitForFences(ctx.Device, 1, &fence, VK_TRUE, UINT64_MAX);
+
+    common::AcquireNextImage(ctx, imageAcquiredSemaphore, mFrameImageIndex);
+
+    if (!ctx.SwapchainOk)
+        return;
+
+    vkResetFences(ctx.Device, 1, &fence);
+
+    // DrawFrame
+    {
+        auto &buffer = mCommandBuffers[mFrameSemaphoreIndex];
+
+        vkResetCommandBuffer(buffer, 0);
+        RecordCommandBuffer(buffer, mFrameImageIndex);
+
+        auto buffers = std::array<VkCommandBuffer, 1>{buffer};
+
+        common::SubmitGraphicsQueueDefault(mGraphicsQueue, buffers, fence,
+                                           imageAcquiredSemaphore,
+                                           renderCompleteSemaphore);
+    }
+
+    common::PresentFrame(ctx, mPresentQueue, renderCompleteSemaphore, mFrameImageIndex);
 }
 
 void HelloTriangleRenderer::CreateSwapchainResources()
@@ -137,7 +185,7 @@ void HelloTriangleRenderer::CreateCommandPools()
 
 void HelloTriangleRenderer::CreateCommandBuffers()
 {
-    mCommandBuffers.resize(mSwapchainImageViews.size());
+    mCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -150,16 +198,6 @@ void HelloTriangleRenderer::CreateCommandBuffers()
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
-void HelloTriangleRenderer::SubmitCommandBuffers()
-{
-    vkResetCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], 0);
-    RecordCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], mFrameImageIndex);
-
-    auto buffers = std::array<VkCommandBuffer, 1>{mCommandBuffers[mFrameSemaphoreIndex]};
-
-    SubmitGraphicsQueueDefault(buffers);
-}
-
 void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
                                                 uint32_t imageIndex)
 {
@@ -169,11 +207,11 @@ void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
-    common::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToRender(commandBuffer, ctx.SwapchainImages[imageIndex]);
 
     VkRenderingAttachmentInfoKHR colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-    colorAttachment.imageView = mSwapchainImageViews[imageIndex];
+    colorAttachment.imageView = ctx.SwapchainImageViews[imageIndex];
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -208,7 +246,7 @@ void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     }
     vkCmdEndRendering(commandBuffer);
 
-    common::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToPresent(commandBuffer, ctx.SwapchainImages[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");
@@ -248,26 +286,6 @@ void HelloTriangleRenderer::CreateUniformBuffers()
 
     for (auto &uniformBuffer : mUniformBuffers)
         uniformBuffer.OnInit(ctx, bufferSize);
-}
-
-void HelloTriangleRenderer::UpdateUniformBuffer()
-{
-    auto width = static_cast<float>(ctx.Swapchain.extent.width);
-    auto height = static_cast<float>(ctx.Swapchain.extent.height);
-
-    float sx = 1.0f, sy = 1.0f;
-
-    if (height < width)
-        sx = width / height;
-    else
-        sy = height / width;
-
-    auto proj = glm::ortho(-sx, sx, -sy, sy, -1.0f, 1.0f);
-
-    mUBOData.MVP = proj;
-
-    auto &uniformBuffer = mUniformBuffers[mFrameSemaphoreIndex];
-    uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
 }
 
 void HelloTriangleRenderer::UpdateDescriptorSets()

@@ -11,12 +11,11 @@ class MainMenuRenderer : public RendererBase {
     ~MainMenuRenderer();
 
     void OnImGui() override;
+    void OnRenderImpl() override;
 
   private:
     void CreateSwapchainResources() override;
     void DestroySwapchainResources() override;
-
-    void SubmitCommandBuffers() override;
 
   private:
     void CreateCommandPools();

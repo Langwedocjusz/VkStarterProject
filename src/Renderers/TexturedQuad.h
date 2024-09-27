@@ -14,32 +14,29 @@ class TexturedQuadRenderer : public RendererBase {
 
     ~TexturedQuadRenderer();
 
+    void OnUpdate() override;
     void OnImGui() override;
+    void OnRenderImpl() override;
 
   private:
     void CreateSwapchainResources() override;
     void DestroySwapchainResources() override;
 
-    void SubmitCommandBuffers() override;
-
   private:
     void CreateDescriptorSets();
+    void UpdateDescriptorSets();
     void CreateGraphicsPipelines();
 
     void CreateCommandPools();
     void CreateCommandBuffers();
 
-    void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
-
     void CreateVertexBuffers();
     void CreateIndexBuffers();
-
     void CreateUniformBuffers();
-    void UpdateUniformBuffer();
-
-    void UpdateDescriptorSets();
 
     void CreateTextureResources();
+
+    void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
   private:
     VkDescriptorSetLayout mDescriptorSetLayout;

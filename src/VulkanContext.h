@@ -15,7 +15,7 @@ class VulkanContext {
                   void *usr_ptr = nullptr);
     ~VulkanContext();
 
-    void CreateSwapchain(uint32_t width, uint32_t height);
+    void CreateSwapchain(uint32_t width, uint32_t height, bool first_run = false);
 
   public:
     SystemWindow Window;
@@ -27,6 +27,9 @@ class VulkanContext {
     vkb::Device Device;
     vkb::DispatchTable Disp;
     vkb::Swapchain Swapchain;
+
+    std::vector<VkImage> SwapchainImages;
+    std::vector<VkImageView> SwapchainImageViews;
 
     bool SwapchainOk = true;
     uint32_t Width;

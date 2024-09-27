@@ -55,23 +55,27 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
     Disp = Device.make_table();
 
     // Swapchain creation:
-    CreateSwapchain(width, height);
+    CreateSwapchain(width, height, true);
 }
 
 VulkanContext::~VulkanContext()
 {
+    Swapchain.destroy_image_views(SwapchainImageViews);
+
     vkb::destroy_swapchain(Swapchain);
     vkb::destroy_device(Device);
     vkb::destroy_surface(Instance, Surface);
     vkb::destroy_instance(Instance);
 }
 
-void VulkanContext::CreateSwapchain(uint32_t width, uint32_t height)
+void VulkanContext::CreateSwapchain(uint32_t width, uint32_t height, bool first_run)
 {
+    if (!first_run)
+        Swapchain.destroy_image_views(SwapchainImageViews);
+
     // To manually specify format and present mode:
     //.set_desired_format(VkSurfaceFormatKHR)
     //.set_desired_present_mode(VkPresentModeKHR)
-
     auto swap_ret = vkb::SwapchainBuilder(Device)
                         .set_old_swapchain(Swapchain)
                         .set_desired_extent(width, height)
@@ -83,4 +87,7 @@ void VulkanContext::CreateSwapchain(uint32_t width, uint32_t height)
     vkb::destroy_swapchain(Swapchain);
 
     Swapchain = swap_ret.value();
+
+    SwapchainImages = Swapchain.get_images().value();
+    SwapchainImageViews = Swapchain.get_image_views().value();
 }

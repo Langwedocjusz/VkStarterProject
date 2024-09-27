@@ -1,4 +1,37 @@
 #include "Utils.h"
+#include <stdexcept>
+
+VkQueue utils::GetQueue(VulkanContext &ctx, vkb::QueueType type)
+{
+    auto queue = ctx.Device.get_queue(type);
+
+    if (!queue.has_value())
+    {
+        auto err_msg = "Failed to get a queue: " + queue.error().message();
+        throw std::runtime_error(err_msg);
+    }
+
+    return queue.value();
+}
+
+void utils::CreateSignalledFence(VulkanContext &ctx, VkFence &fence)
+{
+    VkFenceCreateInfo fence_info = {};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    if (vkCreateFence(ctx.Device, &fence_info, nullptr, &fence) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create a fence!");
+}
+
+void utils::CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore)
+{
+    VkSemaphoreCreateInfo semaphore_info = {};
+    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    if (vkCreateSemaphore(ctx.Device, &semaphore_info, nullptr, &semaphore) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create a semaphore!");
+}
 
 VkCommandBuffer utils::BeginSingleTimeCommands(VulkanContext &ctx,
                                                VkCommandPool commandPool)

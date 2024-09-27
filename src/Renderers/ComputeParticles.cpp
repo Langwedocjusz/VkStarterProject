@@ -38,7 +38,7 @@ ComputeParticleRenderer::ComputeParticleRenderer(VulkanContext &ctx,
     CreateVertexBuffers();
     CreateUniformBuffers();
     UpdateDescriptorSets();
-    CreateMoreSyncObjects();
+    CreateSyncObjects();
 }
 
 ComputeParticleRenderer::~ComputeParticleRenderer()
@@ -67,6 +67,26 @@ ComputeParticleRenderer::~ComputeParticleRenderer()
     }
 }
 
+void ComputeParticleRenderer::OnUpdate()
+{
+    auto width = static_cast<float>(ctx.Swapchain.extent.width);
+    auto height = static_cast<float>(ctx.Swapchain.extent.height);
+
+    float sx = 1.0f, sy = 1.0f;
+
+    if (height < width)
+        sx = width / height;
+    else
+        sy = height / width;
+
+    auto proj = glm::ortho(-sx, sx, -sy, sy, -1.0f, 1.0f);
+
+    mUBOData.MVP = proj;
+
+    auto &uniformBuffer = mUniformBuffers[mFrameSemaphoreIndex];
+    uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
+}
+
 void ComputeParticleRenderer::OnImGui()
 {
     ImGui::Begin("Compute Particles");
@@ -74,6 +94,67 @@ void ComputeParticleRenderer::OnImGui()
     ImGui::SliderFloat("Point size", &mUBOData.PointSize, 5.0f, 100.0f);
     ImGui::SliderFloat("Speed", &mUBOData.Speed, 0.0f, 1.0f);
     ImGui::End();
+}
+
+void ComputeParticleRenderer::OnRenderImpl()
+{
+    auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
+    auto &renderCompleteSemaphore = mRenderCompletedSemaphores[mFrameSemaphoreIndex];
+    auto &fence = mInFlightFences[mFrameSemaphoreIndex];
+
+    // RunCompute
+    {
+        auto &buffer = mComputeCommandBuffers[mFrameSemaphoreIndex];
+        auto &computeFence = mComputeInFlightFences[mFrameSemaphoreIndex];
+
+        vkWaitForFences(ctx.Device, 1, &computeFence, VK_TRUE, UINT64_MAX);
+
+        vkResetFences(ctx.Device, 1, &computeFence);
+
+        vkResetCommandBuffer(buffer, 0);
+        RecordComputeCommandBuffer(buffer);
+
+        auto buffers = std::array<VkCommandBuffer, 1>{buffer};
+
+        std::array<VkSemaphore, 1> signalSemaphores{
+            mComputeFinishedSemaphores[mFrameSemaphoreIndex]};
+
+        common::SubmitQueue(mGraphicsQueue, buffers, computeFence, {}, {},
+                            signalSemaphores);
+    }
+
+    vkWaitForFences(ctx.Device, 1, &fence, VK_TRUE, UINT64_MAX);
+
+    common::AcquireNextImage(ctx, imageAcquiredSemaphore, mFrameImageIndex);
+
+    if (!ctx.SwapchainOk)
+        return;
+
+    vkResetFences(ctx.Device, 1, &fence);
+
+    // DrawFrame
+    {
+        auto &buffer = mCommandBuffers[mFrameSemaphoreIndex];
+
+        vkResetCommandBuffer(buffer, 0);
+        RecordCommandBuffer(buffer, mFrameImageIndex);
+
+        auto buffers = std::array<VkCommandBuffer, 1>{buffer};
+
+        std::array<VkSemaphore, 2> waitSemaphores{
+            mComputeFinishedSemaphores[mFrameSemaphoreIndex], imageAcquiredSemaphore};
+
+        std::array<VkPipelineStageFlags, 2> waitStages{
+            VK_PIPELINE_STAGE_VERTEX_INPUT_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+
+        std::array<VkSemaphore, 1> signalSemaphores{renderCompleteSemaphore};
+
+        common::SubmitQueue(mGraphicsQueue, buffers, fence, waitSemaphores, waitStages,
+                            signalSemaphores);
+    }
+
+    common::PresentFrame(ctx, mPresentQueue, renderCompleteSemaphore, mFrameImageIndex);
 }
 
 void ComputeParticleRenderer::CreateSwapchainResources()
@@ -148,25 +229,15 @@ void ComputeParticleRenderer::CreateComputePipelines()
                            .Build(ctx, mDescriptorSetLayout);
 }
 
-void ComputeParticleRenderer::CreateMoreSyncObjects()
+void ComputeParticleRenderer::CreateSyncObjects()
 {
     mComputeFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
     mComputeInFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
 
-    VkSemaphoreCreateInfo semaphore_info = {};
-    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-    VkFenceCreateInfo fence_info = {};
-    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        if (ctx.Disp.createSemaphore(&semaphore_info, nullptr,
-                                     &mComputeFinishedSemaphores[i]) != VK_SUCCESS ||
-            ctx.Disp.createFence(&fence_info, nullptr, &mComputeInFlightFences[i]) !=
-                VK_SUCCESS)
-            throw std::runtime_error("Failed to create sync objects");
+        utils::CreateSemaphore(ctx, mComputeFinishedSemaphores[i]);
+        utils::CreateSignalledFence(ctx, mComputeInFlightFences[i]);
     }
 }
 
@@ -184,7 +255,7 @@ void ComputeParticleRenderer::CreateCommandPools()
 
 void ComputeParticleRenderer::CreateCommandBuffers()
 {
-    mCommandBuffers.resize(mSwapchainImageViews.size());
+    mCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -199,7 +270,7 @@ void ComputeParticleRenderer::CreateCommandBuffers()
 
 void ComputeParticleRenderer::CreateComputeCommandBuffers()
 {
-    mComputeCommandBuffers.resize(mSwapchainImageViews.size());
+    mComputeCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -212,83 +283,20 @@ void ComputeParticleRenderer::CreateComputeCommandBuffers()
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
-void ComputeParticleRenderer::SubmitCommandBuffersEarly()
-{
-    // Compute submit
-    VkSubmitInfo submitInfo{};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    // Compute submission
-    vkWaitForFences(ctx.Device, 1, &mComputeInFlightFences[mFrameSemaphoreIndex], VK_TRUE, UINT64_MAX);
-
-    vkResetFences(ctx.Device, 1, &mComputeInFlightFences[mFrameSemaphoreIndex]);
-
-    vkResetCommandBuffer(mComputeCommandBuffers[mFrameSemaphoreIndex], 0);
-    RecordComputeCommandBuffer(mComputeCommandBuffers[mFrameSemaphoreIndex]);
-
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &mComputeCommandBuffers[mFrameSemaphoreIndex];
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &mComputeFinishedSemaphores[mFrameSemaphoreIndex];
-
-    if (vkQueueSubmit(mGraphicsQueue, 1, &submitInfo,
-                      mComputeInFlightFences[mFrameSemaphoreIndex]) != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to submit compute command buffer!");
-    };
-}
-
-void ComputeParticleRenderer::SubmitCommandBuffers()
-{
-    vkResetCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], 0);
-    RecordCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], mFrameImageIndex);
-
-    auto buffers = std::array<VkCommandBuffer, 1>{mCommandBuffers[mFrameSemaphoreIndex]};
-
-    auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
-    auto &renderCompleteSemaphore = mRenderCompletedSemaphores[mFrameSemaphoreIndex];
-
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    std::array<VkSemaphore, 2> wait_semaphores{mComputeFinishedSemaphores[mFrameSemaphoreIndex], imageAcquiredSemaphore};
-    std::array<VkPipelineStageFlags, 2> wait_stages{
-        VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-
-    submitInfo.waitSemaphoreCount = static_cast<uint32_t>(wait_semaphores.size());
-    submitInfo.pWaitSemaphores = wait_semaphores.data();
-    submitInfo.pWaitDstStageMask = wait_stages.data();
-
-    submitInfo.commandBufferCount = static_cast<uint32_t>(buffers.size());
-    submitInfo.pCommandBuffers = buffers.data();
-
-    std::array<VkSemaphore, 1> signal_semaphores{renderCompleteSemaphore};
-    submitInfo.signalSemaphoreCount = static_cast<uint32_t>(signal_semaphores.size());
-    submitInfo.pSignalSemaphores = signal_semaphores.data();
-
-    if (vkQueueSubmit(mGraphicsQueue, 1, &submitInfo,
-                      mInFlightFences[mFrameSemaphoreIndex]) != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to submit draw command buffer!");
-    }
-}
-
 void ComputeParticleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
                                                   uint32_t imageIndex)
 {
-    UpdateUniformBuffer();
-
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
     if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
-    common::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToRender(commandBuffer, ctx.SwapchainImages[imageIndex]);
 
     VkRenderingAttachmentInfoKHR colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-    colorAttachment.imageView = mSwapchainImageViews[imageIndex];
+    colorAttachment.imageView = ctx.SwapchainImageViews[imageIndex];
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -323,7 +331,7 @@ void ComputeParticleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     }
     vkCmdEndRendering(commandBuffer);
 
-    common::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToPresent(commandBuffer, ctx.SwapchainImages[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");
@@ -366,7 +374,7 @@ void ComputeParticleRenderer::CreateVertexBuffers()
 
         float theta = 3.1415f * dis(gen);
         vertices[i].Velocity.x = 0.01f * std::cos(theta);
-        vertices[i].Velocity.y = 0.01f *std::sin(theta);
+        vertices[i].Velocity.y = 0.01f * std::sin(theta);
     }
 
     mVertexCount = vertices.size();
@@ -398,26 +406,6 @@ void ComputeParticleRenderer::CreateUniformBuffers()
 
     for (auto &uniformBuffer : mUniformBuffers)
         uniformBuffer.OnInit(ctx, bufferSize);
-}
-
-void ComputeParticleRenderer::UpdateUniformBuffer()
-{
-    auto width = static_cast<float>(ctx.Swapchain.extent.width);
-    auto height = static_cast<float>(ctx.Swapchain.extent.height);
-
-    float sx = 1.0f, sy = 1.0f;
-
-    if (height < width)
-        sx = width / height;
-    else
-        sy = height / width;
-
-    auto proj = glm::ortho(-sx, sx, -sy, sy, -1.0f, 1.0f);
-
-    mUBOData.MVP = proj;
-
-    auto &uniformBuffer = mUniformBuffers[mFrameSemaphoreIndex];
-    uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
 }
 
 void ComputeParticleRenderer::UpdateDescriptorSets()

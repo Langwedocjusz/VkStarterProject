@@ -63,12 +63,65 @@ TexturedCubeRenderer::~TexturedCubeRenderer()
     vkDestroyDescriptorSetLayout(ctx.Device, mDescriptorSetLayout, nullptr);
 }
 
+void TexturedCubeRenderer::OnUpdate()
+{
+    // Update Uniform buffer data:
+    auto width = static_cast<float>(ctx.Swapchain.extent.width);
+    auto height = static_cast<float>(ctx.Swapchain.extent.height);
+
+    float aspect = width / height;
+
+    glm::vec3 pos{0.0f, 0.0f, -3.0f};
+    glm::vec3 front{0.0f, 0.0f, 1.0f};
+    glm::vec3 up{0.0f, 1.0f, 0.0f};
+
+    auto proj = glm::perspective(glm::radians(45.0f), aspect, 0.01f, 100.0f);
+    auto view = glm::lookAt(pos, pos + front, up);
+
+    mUBOData.MVP = proj * view;
+
+    auto &uniformBuffer = mUniformBuffers[mFrameSemaphoreIndex];
+    uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
+}
+
 void TexturedCubeRenderer::OnImGui()
 {
     ImGui::Begin("Textured Cube");
     callback();
     ImGui::SliderFloat("Rotation", &mUBOData.Phi, 0.0f, 6.28f);
     ImGui::End();
+}
+
+void TexturedCubeRenderer::OnRenderImpl()
+{
+    auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
+    auto &renderCompleteSemaphore = mRenderCompletedSemaphores[mFrameSemaphoreIndex];
+    auto &fence = mInFlightFences[mFrameSemaphoreIndex];
+
+    vkWaitForFences(ctx.Device, 1, &fence, VK_TRUE, UINT64_MAX);
+
+    common::AcquireNextImage(ctx, imageAcquiredSemaphore, mFrameImageIndex);
+
+    if (!ctx.SwapchainOk)
+        return;
+
+    vkResetFences(ctx.Device, 1, &fence);
+
+    // DrawFrame
+    {
+        auto &buffer = mCommandBuffers[mFrameSemaphoreIndex];
+
+        vkResetCommandBuffer(buffer, 0);
+        RecordCommandBuffer(buffer, mFrameImageIndex);
+
+        auto buffers = std::array<VkCommandBuffer, 1>{buffer};
+
+        common::SubmitGraphicsQueueDefault(mGraphicsQueue, buffers, fence,
+                                           imageAcquiredSemaphore,
+                                           renderCompleteSemaphore);
+    }
+
+    common::PresentFrame(ctx, mPresentQueue, renderCompleteSemaphore, mFrameImageIndex);
 }
 
 void TexturedCubeRenderer::CreateSwapchainResources()
@@ -153,7 +206,7 @@ void TexturedCubeRenderer::CreateCommandPools()
 
 void TexturedCubeRenderer::CreateCommandBuffers()
 {
-    mCommandBuffers.resize(mSwapchainImageViews.size());
+    mCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -166,33 +219,21 @@ void TexturedCubeRenderer::CreateCommandBuffers()
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
-void TexturedCubeRenderer::SubmitCommandBuffers()
-{
-    vkResetCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], 0);
-    RecordCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], mFrameImageIndex);
-
-    auto buffers = std::array<VkCommandBuffer, 1>{mCommandBuffers[mFrameSemaphoreIndex]};
-
-    SubmitGraphicsQueueDefault(buffers);
-}
-
 void TexturedCubeRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
                                                uint32_t imageIndex)
 {
-    UpdateUniformBuffer();
-
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
     if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
-    common::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToRender(commandBuffer, ctx.SwapchainImages[imageIndex]);
     common::ImageBarrierDepthToRender(commandBuffer, mDepthImage.Handle);
 
     VkRenderingAttachmentInfoKHR colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-    colorAttachment.imageView = mSwapchainImageViews[imageIndex];
+    colorAttachment.imageView = ctx.SwapchainImageViews[imageIndex];
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -240,7 +281,7 @@ void TexturedCubeRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
 
     vkCmdEndRendering(commandBuffer);
 
-    common::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToPresent(commandBuffer, ctx.SwapchainImages[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");
@@ -331,26 +372,6 @@ void TexturedCubeRenderer::CreateUniformBuffers()
 
     for (auto &uniformBuffer : mUniformBuffers)
         uniformBuffer.OnInit(ctx, bufferSize);
-}
-
-void TexturedCubeRenderer::UpdateUniformBuffer()
-{
-    auto width = static_cast<float>(ctx.Swapchain.extent.width);
-    auto height = static_cast<float>(ctx.Swapchain.extent.height);
-
-    float aspect = width / height;
-
-    glm::vec3 pos{0.0f, 0.0f, -3.0f};
-    glm::vec3 front{0.0f, 0.0f, 1.0f};
-    glm::vec3 up{0.0f, 1.0f, 0.0f};
-
-    auto proj = glm::perspective(glm::radians(45.0f), aspect, 0.01f, 100.0f);
-    auto view = glm::lookAt(pos, pos + front, up);
-
-    mUBOData.MVP = proj * view;
-
-    auto &uniformBuffer = mUniformBuffers[mFrameSemaphoreIndex];
-    uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
 }
 
 void TexturedCubeRenderer::UpdateDescriptorSets()

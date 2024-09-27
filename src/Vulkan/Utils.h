@@ -2,10 +2,16 @@
 
 #include <vector>
 
+#include "VkBootstrap.h"
 #include "VulkanContext.h"
 
 namespace utils
 {
+VkQueue GetQueue(VulkanContext &ctx, vkb::QueueType type);
+
+void CreateSignalledFence(VulkanContext &ctx, VkFence &fence);
+void CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore);
+
 template <typename VertexType>
 VkVertexInputBindingDescription GetBindingDescription(uint32_t binding,
                                                       VkVertexInputRate inputRate)

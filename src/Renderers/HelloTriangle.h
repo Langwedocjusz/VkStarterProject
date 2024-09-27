@@ -15,30 +15,24 @@ class HelloTriangleRenderer : public RendererBase {
 
     void OnUpdate() override;
     void OnImGui() override;
+    void OnRenderImpl() override;
 
   private:
     void CreateSwapchainResources() override;
     void DestroySwapchainResources() override;
 
-    void SubmitCommandBuffers() override;
-
   private:
     void CreateDescriptorSets();
-    void CreateRenderPasses();
+    void UpdateDescriptorSets();
     void CreateGraphicsPipelines();
 
     void CreateCommandPools();
     void CreateCommandBuffers();
-    void CreateFramebuffers();
-
-    void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
     void CreateVertexBuffers();
-
     void CreateUniformBuffers();
-    void UpdateUniformBuffer();
 
-    void UpdateDescriptorSets();
+    void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
 
   private:
     VkDescriptorSetLayout mDescriptorSetLayout;

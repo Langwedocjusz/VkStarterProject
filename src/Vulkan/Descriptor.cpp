@@ -1,7 +1,8 @@
 #include "Descriptor.h"
 
-DescriptorSetLayoutBuilder DescriptorSetLayoutBuilder::AddBinding(
-    uint32_t binding, VkDescriptorType type, uint32_t stages)
+DescriptorSetLayoutBuilder DescriptorSetLayoutBuilder::AddBinding(uint32_t binding,
+                                                                  VkDescriptorType type,
+                                                                  uint32_t stages)
 {
     VkDescriptorSetLayoutBinding layoutBinding{};
     layoutBinding.binding = binding;
