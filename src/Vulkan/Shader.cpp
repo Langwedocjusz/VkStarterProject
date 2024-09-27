@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <stdexcept>
 
 static std::vector<char> ReadFileBinary(const std::string &filename)
 {
@@ -44,8 +45,30 @@ static VkShaderModule CreateShaderModule(VulkanContext &ctx,
 
 std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::Build(VulkanContext &ctx)
 {
-    auto vertCode = ReadFileBinary(mVertexPath);
-    auto fragCode = ReadFileBinary(mFragmentPath);
+    if (mComputePath.has_value())
+    {
+        return BuildCompute(ctx);
+    }
+
+    else
+    {
+        if (!mVertexPath.has_value())
+            throw std::logic_error(
+                "Vertex shader path not provided in non-compute shader.");
+
+        if (!mFragmentPath.has_value())
+            throw std::logic_error(
+                "Fragment shader path not provided in non-compute shader.");
+
+        return BuildGraphics(ctx);
+    }
+}
+
+std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildGraphics(
+    VulkanContext &ctx)
+{
+    auto vertCode = ReadFileBinary(mVertexPath.value());
+    auto fragCode = ReadFileBinary(mFragmentPath.value());
 
     VkShaderModule vertModule = CreateShaderModule(ctx, vertCode);
     if (vertModule == VK_NULL_HANDLE)
@@ -68,4 +91,22 @@ std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::Build(VulkanContext 
     fragStageInfo.pName = "main";
 
     return std::vector<VkPipelineShaderStageCreateInfo>{vertStageInfo, fragStageInfo};
+}
+
+std::vector<VkPipelineShaderStageCreateInfo> ShaderBuilder::BuildCompute(
+    VulkanContext &ctx)
+{
+    auto computeCode = ReadFileBinary(mComputePath.value());
+
+    VkShaderModule computeModule = CreateShaderModule(ctx, computeCode);
+    if (computeModule == VK_NULL_HANDLE)
+        throw std::runtime_error("Failed to create a shader module!");
+
+    VkPipelineShaderStageCreateInfo computeStageInfo = {};
+    computeStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    computeStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    computeStageInfo.module = computeModule;
+    computeStageInfo.pName = "main";
+
+    return std::vector<VkPipelineShaderStageCreateInfo>{computeStageInfo};
 }

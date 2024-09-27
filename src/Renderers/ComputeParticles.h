@@ -6,14 +6,14 @@
 #include "Pipeline.h"
 
 #include <glm/glm.hpp>
+#include <vulkan/vulkan_core.h>
 
-class HelloTriangleRenderer : public RendererBase {
+class ComputeParticleRenderer : public RendererBase {
   public:
-    HelloTriangleRenderer(VulkanContext &ctx, std::function<void()> callback);
+    ComputeParticleRenderer(VulkanContext &ctx, std::function<void()> callback);
 
-    ~HelloTriangleRenderer();
+    ~ComputeParticleRenderer();
 
-    void OnUpdate() override;
     void OnImGui() override;
 
   private:
@@ -22,16 +22,21 @@ class HelloTriangleRenderer : public RendererBase {
 
     void SubmitCommandBuffers() override;
 
+    void SubmitCommandBuffersEarly() override;
+
   private:
     void CreateDescriptorSets();
-    void CreateRenderPasses();
     void CreateGraphicsPipelines();
+    void CreateComputePipelines();
 
     void CreateCommandPools();
     void CreateCommandBuffers();
-    void CreateFramebuffers();
+    void CreateComputeCommandBuffers();
+
+    void CreateMoreSyncObjects();
 
     void RecordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
+    void RecordComputeCommandBuffer(VkCommandBuffer commandBuffer);
 
     void CreateVertexBuffers();
 
@@ -46,25 +51,31 @@ class HelloTriangleRenderer : public RendererBase {
     std::vector<VkDescriptorSet> mDescriptorSets;
 
     Pipeline mGraphicsPipeline;
+    Pipeline mComputePipeline;
 
     VkCommandPool mCommandPool;
     std::vector<VkCommandBuffer> mCommandBuffers;
+    std::vector<VkCommandBuffer> mComputeCommandBuffers;
 
     struct Vertex {
         glm::vec2 Pos;
-        glm::vec3 Color;
+        glm::vec2 Velocity;
 
         static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
     };
 
-    Buffer mVertexBuffer;
+    std::vector<Buffer> mVertexBuffers;
     size_t mVertexCount;
 
     std::vector<MappedUniformBuffer> mUniformBuffers;
 
     struct UniformBufferObject {
         glm::mat4 MVP = glm::mat4(1.0f);
-        float Phi = 0.0f;
+        float PointSize = 50.0f;
+        float Speed = 0.5f;
     };
     UniformBufferObject mUBOData;
+
+    std::vector<VkSemaphore> mComputeFinishedSemaphores;
+    std::vector<VkFence> mComputeInFlightFences;
 };

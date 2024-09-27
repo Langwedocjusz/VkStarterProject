@@ -1,6 +1,5 @@
 #pragma once
 
-#include <string>
 #include <vector>
 
 #include "VulkanContext.h"
@@ -17,8 +16,6 @@ VkVertexInputBindingDescription GetBindingDescription(uint32_t binding,
     bindingDescription.inputRate = inputRate;
     return bindingDescription;
 }
-
-void ViewportScissorDefaultBehaviour(VulkanContext &ctx, VkCommandBuffer buffer);
 
 VkCommandBuffer BeginSingleTimeCommands(VulkanContext &ctx, VkCommandPool commandPool);
 
@@ -44,9 +41,4 @@ struct ImageMemoryBarrierInfo {
 };
 
 void InsertImageMemoryBarrier(VkCommandBuffer buffer, ImageMemoryBarrierInfo info);
-
-void ImageBarrierColorToRender(VkCommandBuffer buffer, VkImage swapchainImage);
-void ImageBarrierColorToPresent(VkCommandBuffer buffer, VkImage swapchainImage);
-
-void ImageBarrierDepthToRender(VkCommandBuffer buffer, VkImage depthImage);
 } // namespace utils

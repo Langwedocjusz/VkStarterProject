@@ -1,5 +1,6 @@
 #include "Image.h"
 
+#include "Buffer.h"
 #include "Utils.h"
 
 Image Image::CreateImage(VulkanContext &ctx, ImageInfo info)

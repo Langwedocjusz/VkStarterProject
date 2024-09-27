@@ -27,7 +27,8 @@ class Application {
         MainMenu,
         HelloTraingle,
         TexturedQuad,
-        TexturedCube
+        TexturedCube,
+        ComputeParticle,
     };
 
     SupportedRenderer m_RendererType = SupportedRenderer::MainMenu;

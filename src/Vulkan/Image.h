@@ -2,8 +2,6 @@
 
 #include "VulkanContext.h"
 
-#include "Buffer.h"
-
 // Currently assumes 2d image without mips
 struct ImageInfo {
     uint32_t Width;

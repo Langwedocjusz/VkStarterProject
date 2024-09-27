@@ -1,24 +1,5 @@
 #include "Utils.h"
 
-#include <iostream>
-
-void utils::ViewportScissorDefaultBehaviour(VulkanContext &ctx, VkCommandBuffer buffer)
-{
-    VkViewport viewport = {};
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = static_cast<float>(ctx.Swapchain.extent.width);
-    viewport.height = static_cast<float>(ctx.Swapchain.extent.height);
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    vkCmdSetViewport(buffer, 0, 1, &viewport);
-
-    VkRect2D scissor = {};
-    scissor.offset = {0, 0};
-    scissor.extent = ctx.Swapchain.extent;
-    vkCmdSetScissor(buffer, 0, 1, &scissor);
-}
-
 VkCommandBuffer utils::BeginSingleTimeCommands(VulkanContext &ctx,
                                                VkCommandPool commandPool)
 {
@@ -73,53 +54,6 @@ void utils::InsertImageMemoryBarrier(VkCommandBuffer buffer, ImageMemoryBarrierI
 
     vkCmdPipelineBarrier(buffer, info.SrcStageMask, info.DstStageMask, 0, 0, nullptr, 0,
                          nullptr, 1, &imageMemoryBarrier);
-}
-
-void utils::ImageBarrierColorToRender(VkCommandBuffer buffer, VkImage swapchainImage)
-{
-    utils::ImageMemoryBarrierInfo info{
-        swapchainImage,
-        0,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}};
-
-    utils::InsertImageMemoryBarrier(buffer, info);
-}
-
-void utils::ImageBarrierColorToPresent(VkCommandBuffer buffer, VkImage swapchainImage)
-{
-    utils::ImageMemoryBarrierInfo info{
-        swapchainImage,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        0,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}};
-
-    utils::InsertImageMemoryBarrier(buffer, info);
-}
-
-void utils::ImageBarrierDepthToRender(VkCommandBuffer buffer, VkImage depthImage)
-{
-    utils::ImageMemoryBarrierInfo info{
-        depthImage,
-        0,
-        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT |
-            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}};
-
-    utils::InsertImageMemoryBarrier(buffer, info);
 }
 
 VkFormat utils::FindSupportedFormat(VulkanContext &ctx,

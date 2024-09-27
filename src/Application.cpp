@@ -1,5 +1,6 @@
 #include "Application.h"
 
+#include "ComputeParticles.h"
 #include "HelloTriangle.h"
 #include "MainMenu.h"
 #include "TexturedCube.h"
@@ -106,6 +107,11 @@ void Application::RecreateRenderer(bool first_run)
             m_RecreateRenderer = true;
             m_RendererType = TexturedCube;
         }
+        if (ImGui::Button("Compute Particles", size))
+        {
+            m_RecreateRenderer = true;
+            m_RendererType = ComputeParticle;
+        }
     };
 
     switch (m_RendererType)
@@ -126,6 +132,10 @@ void Application::RecreateRenderer(bool first_run)
     }
     case TexturedCube: {
         m_Renderer = std::make_unique<TexturedCubeRenderer>(m_Ctx, go_back);
+        break;
+    }
+    case ComputeParticle: {
+        m_Renderer = std::make_unique<ComputeParticleRenderer>(m_Ctx, go_back);
         break;
     }
     }

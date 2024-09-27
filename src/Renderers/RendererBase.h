@@ -3,6 +3,7 @@
 #include "VulkanContext.h"
 
 #include <functional>
+#include <span>
 
 /// Struct containing data needed for ImGuiContext
 struct RenderDataForImGui {
@@ -30,18 +31,23 @@ class RendererBase {
 
     void RecreateSwapchain();
 
-    RenderDataForImGui getImGuiData() const;
+    [[nodiscard]] RenderDataForImGui getImGuiData() const;
 
   protected:
     virtual void CreateSwapchainResources() = 0;
     virtual void DestroySwapchainResources() = 0;
 
+    virtual void SubmitCommandBuffersEarly()
+    {
+    }
     virtual void SubmitCommandBuffers() = 0;
 
     void CreateQueues();
     void CreateSyncObjects();
     void CreateSwapchainViews();
     void DestroySwapchainViews();
+
+    void SubmitGraphicsQueueDefault(std::span<VkCommandBuffer> buffers);
 
     void DrawFrame();
     void PresentFrame();

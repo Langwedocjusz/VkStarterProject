@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 
 #include "VulkanContext.h"
@@ -19,9 +20,21 @@ class ShaderBuilder {
         return *this;
     }
 
+    ShaderBuilder SetComputePath(std::string_view path)
+    {
+        mComputePath = path;
+        return *this;
+    }
+
     std::vector<VkPipelineShaderStageCreateInfo> Build(VulkanContext &ctx);
 
   private:
-    std::string mVertexPath;
-    std::string mFragmentPath;
+    std::vector<VkPipelineShaderStageCreateInfo> BuildGraphics(VulkanContext &ctx);
+    std::vector<VkPipelineShaderStageCreateInfo> BuildCompute(VulkanContext &ctx);
+
+  private:
+    std::optional<std::string> mVertexPath;
+    std::optional<std::string> mFragmentPath;
+
+    std::optional<std::string> mComputePath;
 };

@@ -4,7 +4,7 @@ SPIRV_DIR="assets/spirv"
 
 mkdir -p ${SPIRV_DIR}
 
-SHADER_FILEPATHS=$(find "assets/shaders" -iname '*.vert' -o -iname '*.frag')
+SHADER_FILEPATHS=$(find "assets/shaders" -iname '*.vert' -o -iname '*.frag' -o -iname '*.comp')
 
 for filepath in $SHADER_FILEPATHS; do
     filename=${filepath##*/}
@@ -19,6 +19,8 @@ for filepath in $SHADER_FILEPATHS; do
         result_path="${result_path}Vert.spv"
     elif [ "$extension" = "frag" ]; then
         result_path="${result_path}Frag.spv"
+    elif [ "$extension" = "comp" ]; then
+        result_path="${result_path}Comp.spv"
     fi
 
     glslc ${filepath} -o ${result_path}

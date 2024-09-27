@@ -1,7 +1,7 @@
 #include "Descriptor.h"
 
 DescriptorSetLayoutBuilder DescriptorSetLayoutBuilder::AddBinding(
-    uint32_t binding, VkDescriptorType type, VkShaderStageFlagBits stages)
+    uint32_t binding, VkDescriptorType type, uint32_t stages)
 {
     VkDescriptorSetLayoutBinding layoutBinding{};
     layoutBinding.binding = binding;
@@ -48,20 +48,20 @@ VkDescriptorPool Descriptor::InitPool(VulkanContext &ctx, uint32_t maxSets,
         poolSizes.push_back(poolSize);
     }
 
-	VkDescriptorPoolCreateInfo poolInfo{};
+    VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-	poolInfo.maxSets = maxSets;
-	poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
-	poolInfo.pPoolSizes = poolSizes.data();
+    poolInfo.maxSets = maxSets;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
 
-	if (vkCreateDescriptorPool(ctx.Device, &poolInfo, nullptr, &pool) !=
-        VK_SUCCESS)
+    if (vkCreateDescriptorPool(ctx.Device, &poolInfo, nullptr, &pool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create descriptor pool!");
 
     return pool;
 }
 
-std::vector<VkDescriptorSet> Descriptor::Allocate(VulkanContext &ctx, VkDescriptorPool pool, std::span<VkDescriptorSetLayout> layouts)
+std::vector<VkDescriptorSet> Descriptor::Allocate(
+    VulkanContext &ctx, VkDescriptorPool pool, std::span<VkDescriptorSetLayout> layouts)
 {
     std::vector<VkDescriptorSet> descriptorSets(layouts.size());
 

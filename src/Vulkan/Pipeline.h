@@ -33,6 +33,8 @@ class PipelineBuilder {
     PipelineBuilder SetSwapchainColorFormat(VkFormat format);
     PipelineBuilder SetDepthFormat(VkFormat format);
 
+    PipelineBuilder EnableBlending();
+
     Pipeline Build(VulkanContext &ctx, VkDescriptorSetLayout &descriptor);
 
   private:
@@ -50,4 +52,20 @@ class PipelineBuilder {
 
     bool mDepthFormatProvided = false;
     VkFormat mDepthFormat;
+};
+
+class ComputePipelineBuilder {
+  public:
+    ComputePipelineBuilder() = default;
+
+    ComputePipelineBuilder SetShaderStage(VkPipelineShaderStageCreateInfo stage)
+    {
+        mShaderStage = stage;
+        return *this;
+    }
+
+    Pipeline Build(VulkanContext &ctx, VkDescriptorSetLayout &descriptor);
+
+  private:
+    VkPipelineShaderStageCreateInfo mShaderStage;
 };

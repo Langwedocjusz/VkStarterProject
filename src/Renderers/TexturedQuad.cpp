@@ -1,5 +1,6 @@
 #include "TexturedQuad.h"
 
+#include "Common.h"
 #include "Utils.h"
 
 #include "Descriptor.h"
@@ -85,7 +86,7 @@ void TexturedQuadRenderer::CreateDescriptorSets()
 {
     auto numFrames = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-    //Descriptor layout
+    // Descriptor layout
     mDescriptorSetLayout =
         DescriptorSetLayoutBuilder()
             .AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
@@ -93,7 +94,7 @@ void TexturedQuadRenderer::CreateDescriptorSets()
                         VK_SHADER_STAGE_FRAGMENT_BIT)
             .Build(ctx);
 
-    //Descriptor pool
+    // Descriptor pool
     std::vector<PoolCount> poolCounts{
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, numFrames},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, numFrames},
@@ -102,7 +103,7 @@ void TexturedQuadRenderer::CreateDescriptorSets()
 
     mDescriptorPool = Descriptor::InitPool(ctx, maxSets, poolCounts);
 
-    //Descriptor sets allocation
+    // Descriptor sets allocation
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
                                                mDescriptorSetLayout);
 
@@ -160,33 +161,12 @@ void TexturedQuadRenderer::CreateCommandBuffers()
 
 void TexturedQuadRenderer::SubmitCommandBuffers()
 {
-    auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
-    auto &renderCompleteSemaphore = mRenderCompletedSemaphores[mFrameSemaphoreIndex];
-
     vkResetCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], 0);
     RecordCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], mFrameImageIndex);
 
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    auto buffers = std::array<VkCommandBuffer, 1>{mCommandBuffers[mFrameSemaphoreIndex]};
 
-    VkSemaphore wait_semaphores[] = {imageAcquiredSemaphore};
-    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = wait_semaphores;
-    submitInfo.pWaitDstStageMask = wait_stages;
-
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &mCommandBuffers[mFrameSemaphoreIndex];
-
-    VkSemaphore signal_semaphores[] = {renderCompleteSemaphore};
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signal_semaphores;
-
-    if (vkQueueSubmit(mGraphicsQueue, 1, &submitInfo,
-                      mInFlightFences[mFrameSemaphoreIndex]) != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to submit draw command buffer!");
-    }
+    SubmitGraphicsQueueDefault(buffers);
 }
 
 void TexturedQuadRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
@@ -200,7 +180,7 @@ void TexturedQuadRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
-    utils::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
 
     VkRenderingAttachmentInfoKHR colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
@@ -223,7 +203,7 @@ void TexturedQuadRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           mGraphicsPipeline.Handle);
 
-        utils::ViewportScissorDefaultBehaviour(ctx, commandBuffer);
+        common::ViewportScissorDefaultBehaviour(ctx, commandBuffer);
 
         VkBuffer vertexBuffers[] = {mVertexBuffer.Handle};
         VkDeviceSize offsets[] = {0};
@@ -241,7 +221,7 @@ void TexturedQuadRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     }
     vkCmdEndRendering(commandBuffer);
 
-    utils::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");

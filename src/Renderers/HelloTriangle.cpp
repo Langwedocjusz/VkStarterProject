@@ -1,5 +1,6 @@
 #include "HelloTriangle.h"
 
+#include "Common.h"
 #include "Descriptor.h"
 #include "Shader.h"
 #include "Utils.h"
@@ -51,6 +52,11 @@ HelloTriangleRenderer::~HelloTriangleRenderer()
     vkDestroyDescriptorSetLayout(ctx.Device, mDescriptorSetLayout, nullptr);
 }
 
+void HelloTriangleRenderer::OnUpdate()
+{
+    UpdateUniformBuffer();
+}
+
 void HelloTriangleRenderer::OnImGui()
 {
     ImGui::Begin("Hello Triangle");
@@ -74,13 +80,13 @@ void HelloTriangleRenderer::CreateDescriptorSets()
 {
     auto numFrames = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-    //Descriptor layout
+    // Descriptor layout
     mDescriptorSetLayout =
         DescriptorSetLayoutBuilder()
             .AddBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
             .Build(ctx);
 
-    //Descriptor pool
+    // Descriptor pool
     std::vector<PoolCount> poolCounts{
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, numFrames},
     };
@@ -88,7 +94,7 @@ void HelloTriangleRenderer::CreateDescriptorSets()
 
     mDescriptorPool = Descriptor::InitPool(ctx, maxSets, poolCounts);
 
-    //Descriptor sets allocation
+    // Descriptor sets allocation
     std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT,
                                                mDescriptorSetLayout);
 
@@ -146,47 +152,24 @@ void HelloTriangleRenderer::CreateCommandBuffers()
 
 void HelloTriangleRenderer::SubmitCommandBuffers()
 {
-    auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
-    auto &renderCompleteSemaphore = mRenderCompletedSemaphores[mFrameSemaphoreIndex];
-
     vkResetCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], 0);
     RecordCommandBuffer(mCommandBuffers[mFrameSemaphoreIndex], mFrameImageIndex);
 
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    auto buffers = std::array<VkCommandBuffer, 1>{mCommandBuffers[mFrameSemaphoreIndex]};
 
-    VkSemaphore wait_semaphores[] = {imageAcquiredSemaphore};
-    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = wait_semaphores;
-    submitInfo.pWaitDstStageMask = wait_stages;
-
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &mCommandBuffers[mFrameSemaphoreIndex];
-
-    VkSemaphore signal_semaphores[] = {renderCompleteSemaphore};
-    submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = signal_semaphores;
-
-    if (vkQueueSubmit(mGraphicsQueue, 1, &submitInfo,
-                      mInFlightFences[mFrameSemaphoreIndex]) != VK_SUCCESS)
-    {
-        throw std::runtime_error("Failed to submit draw command buffer!");
-    }
+    SubmitGraphicsQueueDefault(buffers);
 }
 
 void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
                                                 uint32_t imageIndex)
 {
-    UpdateUniformBuffer();
-
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
     if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
-    utils::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
 
     VkRenderingAttachmentInfoKHR colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
@@ -209,7 +192,7 @@ void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
         vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                           mGraphicsPipeline.Handle);
 
-        utils::ViewportScissorDefaultBehaviour(ctx, commandBuffer);
+        common::ViewportScissorDefaultBehaviour(ctx, commandBuffer);
 
         VkBuffer vertexBuffers[] = {mVertexBuffer.Handle};
         VkDeviceSize offsets[] = {0};
@@ -225,7 +208,7 @@ void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     }
     vkCmdEndRendering(commandBuffer);
 
-    utils::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");

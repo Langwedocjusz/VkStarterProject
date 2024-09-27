@@ -9,7 +9,7 @@ class DescriptorSetLayoutBuilder {
     DescriptorSetLayoutBuilder() = default;
 
     DescriptorSetLayoutBuilder AddBinding(uint32_t binding, VkDescriptorType type,
-                                          VkShaderStageFlagBits stages);
+                                          uint32_t stages);
 
     VkDescriptorSetLayout Build(VulkanContext &ctx);
 
@@ -27,5 +27,6 @@ namespace Descriptor
 VkDescriptorPool InitPool(VulkanContext &ctx, uint32_t maxSets,
                           std::span<PoolCount> poolCounts);
 
-std::vector<VkDescriptorSet> Allocate(VulkanContext &ctx, VkDescriptorPool pool, std::span<VkDescriptorSetLayout> layouts);
-};
+std::vector<VkDescriptorSet> Allocate(VulkanContext &ctx, VkDescriptorPool pool,
+                                      std::span<VkDescriptorSetLayout> layouts);
+}; // namespace Descriptor

@@ -31,6 +31,10 @@ target_sources(${PROJECT_NAME}
         src/ImGuiContext.h
         src/ImGuiContext.cpp
         src/main.cpp
+        src/Renderers/Common.h
+        src/Renderers/Common.cpp
+        src/Renderers/ComputeParticles.h
+        src/Renderers/ComputeParticles.cpp
         src/Renderers/HelloTriangle.h
         src/Renderers/HelloTriangle.cpp
         src/Renderers/MainMenu.h

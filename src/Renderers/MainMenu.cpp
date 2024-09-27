@@ -1,6 +1,6 @@
 #include "MainMenu.h"
 
-#include "Utils.h"
+#include "Common.h"
 
 #include "ImGuiContext.h"
 #include "imgui.h"
@@ -101,7 +101,7 @@ void MainMenuRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     if (vkBeginCommandBuffer(commandBuffer, &begin_info) != VK_SUCCESS)
         throw std::runtime_error("Failed to begin recording command buffer!");
 
-    utils::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToRender(commandBuffer, mSwapchainImages[imageIndex]);
 
     VkRenderingAttachmentInfoKHR colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
@@ -121,13 +121,13 @@ void MainMenuRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
 
     vkCmdBeginRendering(commandBuffer, &renderingInfo);
     {
-        utils::ViewportScissorDefaultBehaviour(ctx, commandBuffer);
+        common::ViewportScissorDefaultBehaviour(ctx, commandBuffer);
 
         ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
     }
     vkCmdEndRendering(commandBuffer);
 
-    utils::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
+    common::ImageBarrierColorToPresent(commandBuffer, mSwapchainImages[imageIndex]);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");

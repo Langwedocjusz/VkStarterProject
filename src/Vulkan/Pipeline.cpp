@@ -1,7 +1,5 @@
 #include "Pipeline.h"
 
-#include <iostream>
-
 PipelineBuilder::PipelineBuilder()
 {
     mVertexInput = {};
@@ -113,6 +111,31 @@ PipelineBuilder PipelineBuilder::SetDepthFormat(VkFormat format)
     return *this;
 }
 
+PipelineBuilder PipelineBuilder::EnableBlending()
+{
+    mColorBlendAttachment.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
+        VK_COLOR_COMPONENT_A_BIT;
+    mColorBlendAttachment.blendEnable = VK_TRUE;
+    mColorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    mColorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    mColorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    mColorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+    mColorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    mColorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+
+    mColorBlend.logicOpEnable = VK_FALSE;
+    mColorBlend.logicOp = VK_LOGIC_OP_COPY;
+    mColorBlend.attachmentCount = 1;
+    mColorBlend.pAttachments = &mColorBlendAttachment;
+    mColorBlend.blendConstants[0] = 0.0f;
+    mColorBlend.blendConstants[1] = 0.0f;
+    mColorBlend.blendConstants[2] = 0.0f;
+    mColorBlend.blendConstants[3] = 0.0f;
+
+    return *this;
+}
+
 Pipeline PipelineBuilder::Build(VulkanContext &ctx, VkDescriptorSetLayout &descriptor)
 {
     Pipeline pipeline;
@@ -195,6 +218,34 @@ Pipeline PipelineBuilder::Build(VulkanContext &ctx, VkDescriptorSetLayout &descr
 
     for (auto &shaderInfo : mShaderStages)
         vkDestroyShaderModule(ctx.Device, shaderInfo.module, nullptr);
+
+    return pipeline;
+}
+
+Pipeline ComputePipelineBuilder::Build(VulkanContext &ctx,
+                                       VkDescriptorSetLayout &descriptor)
+{
+    Pipeline pipeline;
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &descriptor;
+
+    if (vkCreatePipelineLayout(ctx.Device, &pipelineLayoutInfo, nullptr,
+                               &pipeline.Layout) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create compute pipeline layout!");
+
+    VkComputePipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.layout = pipeline.Layout;
+    pipelineInfo.stage = mShaderStage;
+
+    if (vkCreateComputePipelines(ctx.Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr,
+                                 &pipeline.Handle) != VK_SUCCESS)
+        throw std::runtime_error("Failed to create compute pipeline!");
+
+    vkDestroyShaderModule(ctx.Device, mShaderStage.module, nullptr);
 
     return pipeline;
 }
