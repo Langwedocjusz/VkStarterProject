@@ -49,6 +49,8 @@ target_sources(${PROJECT_NAME}
         src/SystemWindow.cpp
         src/Vulkan/Buffer.h
         src/Vulkan/Buffer.cpp
+        src/Vulkan/DeletionQueue.h
+        src/Vulkan/DeletionQueue.cpp
         src/Vulkan/Descriptor.h
         src/Vulkan/Descriptor.cpp
         src/Vulkan/Image.h

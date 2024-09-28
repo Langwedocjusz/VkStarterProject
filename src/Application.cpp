@@ -8,8 +8,6 @@
 
 #include "imgui.h"
 
-#include <iostream>
-
 Application::Application() : m_Ctx(800, 600, "Vulkanik", static_cast<void *>(this))
 {
     RecreateRenderer(true);

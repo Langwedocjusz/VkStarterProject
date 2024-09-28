@@ -20,7 +20,6 @@ class TexturedCubeRenderer : public RendererBase {
 
   private:
     void CreateSwapchainResources() override;
-    void DestroySwapchainResources() override;
 
   private:
     void CreateDescriptorSets();

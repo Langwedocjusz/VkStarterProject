@@ -20,7 +20,6 @@ class ComputeParticleRenderer : public RendererBase {
 
   private:
     void CreateSwapchainResources() override;
-    void DestroySwapchainResources() override;
 
   private:
     void CreateDescriptorSets();
@@ -30,7 +29,6 @@ class ComputeParticleRenderer : public RendererBase {
 
     void CreateCommandPools();
     void CreateCommandBuffers();
-    void CreateComputeCommandBuffers();
 
     void CreateSyncObjects();
 

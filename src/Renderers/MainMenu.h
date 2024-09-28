@@ -15,7 +15,6 @@ class MainMenuRenderer : public RendererBase {
 
   private:
     void CreateSwapchainResources() override;
-    void DestroySwapchainResources() override;
 
   private:
     void CreateCommandPools();

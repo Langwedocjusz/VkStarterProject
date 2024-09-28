@@ -13,7 +13,8 @@ MainMenuRenderer::MainMenuRenderer(VulkanContext &ctx, std::function<void()> cal
 
 MainMenuRenderer::~MainMenuRenderer()
 {
-    DestroySwapchainResources();
+    mSwapchainDeletionQueue.flush();
+    mMainDeletionQueue.flush();
 }
 
 void MainMenuRenderer::OnImGui()
@@ -61,11 +62,6 @@ void MainMenuRenderer::CreateSwapchainResources()
     CreateCommandBuffers();
 }
 
-void MainMenuRenderer::DestroySwapchainResources()
-{
-    vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr);
-}
-
 void MainMenuRenderer::CreateCommandPools()
 {
     VkCommandPoolCreateInfo pool_info = {};
@@ -76,6 +72,10 @@ void MainMenuRenderer::CreateCommandPools()
 
     if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &mCommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a command pool!");
+
+    mSwapchainDeletionQueue.push_back([&](){
+        vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr);
+    });
 }
 
 void MainMenuRenderer::CreateCommandBuffers()
@@ -110,12 +110,12 @@ void MainMenuRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
+    colorAttachment.clearValue.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
 
     VkRenderingInfoKHR renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-    renderingInfo.renderArea = {0, 0, ctx.Swapchain.extent.width,
-                                ctx.Swapchain.extent.height};
+    renderingInfo.renderArea = {
+        {0, 0}, {ctx.Swapchain.extent.width, ctx.Swapchain.extent.height}};
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments = &colorAttachment;

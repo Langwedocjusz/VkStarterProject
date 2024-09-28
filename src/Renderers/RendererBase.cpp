@@ -23,16 +23,20 @@ RendererBase::RendererBase(VulkanContext &context, std::function<void()> cb)
         utils::CreateSemaphore(ctx, mRenderCompletedSemaphores[i]);
         utils::CreateSignalledFence(ctx, mInFlightFences[i]);
     }
+
+    mMainDeletionQueue.push_back([&](){
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        {
+            ctx.Disp.destroySemaphore(mRenderCompletedSemaphores[i], nullptr);
+            ctx.Disp.destroySemaphore(mImageAcquiredSemaphores[i], nullptr);
+            ctx.Disp.destroyFence(mInFlightFences[i], nullptr);
+        }
+    });
 }
 
 RendererBase::~RendererBase()
 {
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-    {
-        ctx.Disp.destroySemaphore(mRenderCompletedSemaphores[i], nullptr);
-        ctx.Disp.destroySemaphore(mImageAcquiredSemaphores[i], nullptr);
-        ctx.Disp.destroyFence(mInFlightFences[i], nullptr);
-    }
+
 }
 
 void RendererBase::OnUpdate()
@@ -63,7 +67,7 @@ void RendererBase::RecreateSwapchain()
 {
     ctx.Disp.deviceWaitIdle();
 
-    DestroySwapchainResources();
+    mSwapchainDeletionQueue.flush();
     ctx.CreateSwapchain(ctx.Width, ctx.Height);
     CreateSwapchainResources();
 

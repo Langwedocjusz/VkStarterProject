@@ -38,18 +38,8 @@ HelloTriangleRenderer::HelloTriangleRenderer(VulkanContext &ctx,
 
 HelloTriangleRenderer::~HelloTriangleRenderer()
 {
-    DestroySwapchainResources();
-
-    Buffer::DestroyBuffer(ctx, mVertexBuffer);
-
-    vkDestroyPipeline(ctx.Device, mGraphicsPipeline.Handle, nullptr);
-    vkDestroyPipelineLayout(ctx.Device, mGraphicsPipeline.Layout, nullptr);
-
-    for (auto &uniformBuffer : mUniformBuffers)
-        uniformBuffer.OnDestroy(ctx);
-
-    vkDestroyDescriptorPool(ctx.Device, mDescriptorPool, nullptr);
-    vkDestroyDescriptorSetLayout(ctx.Device, mDescriptorSetLayout, nullptr);
+    mSwapchainDeletionQueue.flush();
+    mMainDeletionQueue.flush();
 }
 
 void HelloTriangleRenderer::OnUpdate()
@@ -119,11 +109,6 @@ void HelloTriangleRenderer::CreateSwapchainResources()
     CreateCommandBuffers();
 }
 
-void HelloTriangleRenderer::DestroySwapchainResources()
-{
-    vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr);
-}
-
 void HelloTriangleRenderer::CreateDescriptorSets()
 {
     auto numFrames = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
@@ -147,6 +132,11 @@ void HelloTriangleRenderer::CreateDescriptorSets()
                                                mDescriptorSetLayout);
 
     mDescriptorSets = Descriptor::Allocate(ctx, mDescriptorPool, layouts);
+
+    mMainDeletionQueue.push_back([&](){
+        vkDestroyDescriptorPool(ctx.Device, mDescriptorPool, nullptr);
+        vkDestroyDescriptorSetLayout(ctx.Device, mDescriptorSetLayout, nullptr);
+    });
 }
 
 void HelloTriangleRenderer::CreateGraphicsPipelines()
@@ -169,6 +159,11 @@ void HelloTriangleRenderer::CreateGraphicsPipelines()
                             .DisableDepthTest()
                             .SetSwapchainColorFormat(ctx.Swapchain.image_format)
                             .Build(ctx, mDescriptorSetLayout);
+
+    mMainDeletionQueue.push_back([&](){
+        vkDestroyPipeline(ctx.Device, mGraphicsPipeline.Handle, nullptr);
+        vkDestroyPipelineLayout(ctx.Device, mGraphicsPipeline.Layout, nullptr);
+    });
 }
 
 void HelloTriangleRenderer::CreateCommandPools()
@@ -181,6 +176,10 @@ void HelloTriangleRenderer::CreateCommandPools()
 
     if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &mCommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a command pool!");
+
+    mSwapchainDeletionQueue.push_back([&](){
+        vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr);
+    });
 }
 
 void HelloTriangleRenderer::CreateCommandBuffers()
@@ -215,12 +214,12 @@ void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.clearValue.color = {0.0f, 0.0f, 0.0f, 0.0f};
+    colorAttachment.clearValue.color = {{0.0f, 0.0f, 0.0f, 0.0f}};
 
     VkRenderingInfoKHR renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-    renderingInfo.renderArea = {0, 0, ctx.Swapchain.extent.width,
-                                ctx.Swapchain.extent.height};
+    renderingInfo.renderArea = {
+        {0, 0}, {ctx.Swapchain.extent.width, ctx.Swapchain.extent.height}};
     renderingInfo.layerCount = 1;
     renderingInfo.colorAttachmentCount = 1;
     renderingInfo.pColorAttachments = &colorAttachment;
@@ -232,9 +231,9 @@ void HelloTriangleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
 
         common::ViewportScissorDefaultBehaviour(ctx, commandBuffer);
 
-        VkBuffer vertexBuffers[] = {mVertexBuffer.Handle};
-        VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+        std::array<VkBuffer, 1> vertexBuffers{mVertexBuffer.Handle};
+        std::array<VkDeviceSize, 1> offsets{0};
+        vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers.data(), offsets.data());
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 mGraphicsPipeline.Layout, 0, 1,
@@ -276,6 +275,10 @@ void HelloTriangleRenderer::CreateVertexBuffers()
     };
 
     mVertexBuffer = Buffer::CreateGPUBuffer(ctx, info);
+
+    mMainDeletionQueue.push_back([&](){
+        Buffer::DestroyBuffer(ctx, mVertexBuffer);
+    });
 }
 
 void HelloTriangleRenderer::CreateUniformBuffers()
@@ -286,6 +289,11 @@ void HelloTriangleRenderer::CreateUniformBuffers()
 
     for (auto &uniformBuffer : mUniformBuffers)
         uniformBuffer.OnInit(ctx, bufferSize);
+
+    mMainDeletionQueue.push_back([&](){
+        for (auto &uniformBuffer : mUniformBuffers)
+            uniformBuffer.OnDestroy(ctx);
+    });
 }
 
 void HelloTriangleRenderer::UpdateDescriptorSets()

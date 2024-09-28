@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VulkanContext.h"
+#include "DeletionQueue.h"
 
 #include <functional>
 
@@ -35,7 +36,6 @@ class RendererBase {
     virtual void OnRenderImpl() = 0;
 
     virtual void CreateSwapchainResources() = 0;
-    virtual void DestroySwapchainResources() = 0;
 
   protected:
     VulkanContext &ctx;
@@ -53,4 +53,7 @@ class RendererBase {
 
     size_t mFrameSemaphoreIndex = 0;
     uint32_t mFrameImageIndex = 0;
+
+    DeletionQueue mMainDeletionQueue;
+    DeletionQueue mSwapchainDeletionQueue;
 };
