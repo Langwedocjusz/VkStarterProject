@@ -24,7 +24,7 @@ RendererBase::RendererBase(VulkanContext &context, std::function<void()> cb)
         utils::CreateSignalledFence(ctx, mInFlightFences[i]);
     }
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
         {
             ctx.Disp.destroySemaphore(mRenderCompletedSemaphores[i], nullptr);
@@ -36,7 +36,6 @@ RendererBase::RendererBase(VulkanContext &context, std::function<void()> cb)
 
 RendererBase::~RendererBase()
 {
-
 }
 
 void RendererBase::OnUpdate()

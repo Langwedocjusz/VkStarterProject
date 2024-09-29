@@ -71,7 +71,7 @@ void TexturedQuadRenderer::OnUpdate()
 
 void TexturedQuadRenderer::OnImGui()
 {
-    ImGui::Begin("Textured Quad");
+    ImGui::Begin("Textured Quad###Menu");
     callback();
     ImGui::SliderFloat("Rotation", &mUBOData.Phi, 0.0f, 6.28f);
     ImGui::End();
@@ -142,7 +142,7 @@ void TexturedQuadRenderer::CreateDescriptorSets()
 
     mDescriptorSets = Descriptor::Allocate(ctx, mDescriptorPool, layouts);
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         vkDestroyDescriptorPool(ctx.Device, mDescriptorPool, nullptr);
         vkDestroyDescriptorSetLayout(ctx.Device, mDescriptorSetLayout, nullptr);
     });
@@ -169,7 +169,7 @@ void TexturedQuadRenderer::CreateGraphicsPipelines()
                             .SetSwapchainColorFormat(ctx.Swapchain.image_format)
                             .Build(ctx, mDescriptorSetLayout);
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         vkDestroyPipeline(ctx.Device, mGraphicsPipeline.Handle, nullptr);
         vkDestroyPipelineLayout(ctx.Device, mGraphicsPipeline.Layout, nullptr);
     });
@@ -186,9 +186,8 @@ void TexturedQuadRenderer::CreateCommandPools()
     if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &mCommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a command pool!");
 
-    mSwapchainDeletionQueue.push_back([&](){
-        vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr);
-    });
+    mSwapchainDeletionQueue.push_back(
+        [&]() { vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr); });
 }
 
 void TexturedQuadRenderer::CreateCommandBuffers()
@@ -286,9 +285,7 @@ void TexturedQuadRenderer::CreateVertexBuffers()
 
     mVertexBuffer = Buffer::CreateGPUBuffer(ctx, info);
 
-    mMainDeletionQueue.push_back([&](){
-        Buffer::DestroyBuffer(ctx, mVertexBuffer);
-    });
+    mMainDeletionQueue.push_back([&]() { Buffer::DestroyBuffer(ctx, mVertexBuffer); });
 }
 
 void TexturedQuadRenderer::CreateIndexBuffers()
@@ -312,9 +309,7 @@ void TexturedQuadRenderer::CreateIndexBuffers()
 
     mIndexBuffer = Buffer::CreateGPUBuffer(ctx, info);
 
-    mMainDeletionQueue.push_back([&](){
-        Buffer::DestroyBuffer(ctx, mIndexBuffer);
-    });
+    mMainDeletionQueue.push_back([&]() { Buffer::DestroyBuffer(ctx, mIndexBuffer); });
 }
 
 void TexturedQuadRenderer::CreateUniformBuffers()
@@ -326,7 +321,7 @@ void TexturedQuadRenderer::CreateUniformBuffers()
     for (auto &uniformBuffer : mUniformBuffers)
         uniformBuffer.OnInit(ctx, bufferSize);
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         for (auto &uniformBuffer : mUniformBuffers)
             uniformBuffer.OnDestroy(ctx);
     });
@@ -388,7 +383,7 @@ void TexturedQuadRenderer::CreateTextureResources()
                           .SetAddressMode(VK_SAMPLER_ADDRESS_MODE_REPEAT)
                           .Build(ctx);
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         vkDestroySampler(ctx.Device, mTextureSampler, nullptr);
         vkDestroyImageView(ctx.Device, mTextureImageView, nullptr);
         Image::DestroyImage(ctx, mTextureImage);

@@ -2,17 +2,17 @@
 
 #include <ranges>
 
-void DeletionQueue::push_back(std::function<void()>&& function)
+void DeletionQueue::push_back(std::function<void()> &&function)
 {
     mDeletors.push_back(function);
 }
 
 void DeletionQueue::flush()
 {
-    for (auto& deletor : mDeletors | std::views::reverse)
+    for (auto &deletor : mDeletors | std::views::reverse)
     {
-		deletor();
-	}
+        deletor();
+    }
 
-	mDeletors.clear();
+    mDeletors.clear();
 }

@@ -39,6 +39,8 @@ target_sources(${PROJECT_NAME}
         src/Renderers/HelloTriangle.cpp
         src/Renderers/MainMenu.h
         src/Renderers/MainMenu.cpp
+        src/Renderers/Model.h
+        src/Renderers/Model.cpp
         src/Renderers/RendererBase.h
         src/Renderers/RendererBase.cpp
         src/Renderers/TexturedCube.h
@@ -86,6 +88,7 @@ target_include_directories(${PROJECT_NAME}
 #For filters in IDEs like Visual studio:
 source_group(src REGULAR_EXPRESSION "src/*")
 source_group(src/Renderers REGULAR_EXPRESSION "src/Renderers/*")
+source_group(src/Vulkan REGULAR_EXPRESSION "src/Vulkan/*")
 source_group(imgui_impl FILES ${imgui_impl})
 
 #Get dependencies:
@@ -96,6 +99,11 @@ add_subdirectory(vendor/vk-bootstrap)
 add_subdirectory(vendor/imgui)
 add_subdirectory(vendor/glm)
 add_subdirectory(vendor/stb_image)
+add_subdirectory(vendor/fastgltf)
+
+#Turn warnings off for fastgltf headers...
+get_target_property(_inc fastgltf::fastgltf INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(fastgltf SYSTEM INTERFACE ${_inc})
 
 #Link dependencies:
 target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
@@ -104,6 +112,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui)
 target_link_libraries(${PROJECT_NAME} PRIVATE glm::glm)
 target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
+target_link_libraries(${PROJECT_NAME} PRIVATE fastgltf::fastgltf)
 
 #Dependency-specific definitions:
 target_compile_definitions(${PROJECT_NAME} PRIVATE "GLFW_INCLUDE_VULKAN")

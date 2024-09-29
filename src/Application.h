@@ -29,6 +29,7 @@ class Application {
         TexturedQuad,
         TexturedCube,
         ComputeParticle,
+        Model,
     };
 
     SupportedRenderer m_RendererType = SupportedRenderer::MainMenu;

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "VulkanContext.h"
 #include "DeletionQueue.h"
+#include "VulkanContext.h"
 
 #include <functional>
 

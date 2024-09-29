@@ -19,7 +19,7 @@ MainMenuRenderer::~MainMenuRenderer()
 
 void MainMenuRenderer::OnImGui()
 {
-    ImGui::Begin("Main Menu");
+    ImGui::Begin("Main Menu###Menu");
     callback();
     ImGui::End();
 }
@@ -73,9 +73,8 @@ void MainMenuRenderer::CreateCommandPools()
     if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &mCommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a command pool!");
 
-    mSwapchainDeletionQueue.push_back([&](){
-        vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr);
-    });
+    mSwapchainDeletionQueue.push_back(
+        [&]() { vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr); });
 }
 
 void MainMenuRenderer::CreateCommandBuffers()

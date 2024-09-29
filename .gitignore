@@ -7,5 +7,10 @@ assets/spirv
 #Textures
 assets/textures
 
+#Gltf models
+assets/gltf
+
 #Imgui conifg:
 imgui.ini
+
+.cache

@@ -8,11 +8,11 @@
 
 #include <glm/glm.hpp>
 
-class TexturedCubeRenderer : public RendererBase {
+class ModelRenderer : public RendererBase {
   public:
-    TexturedCubeRenderer(VulkanContext &ctx, std::function<void()> callback);
+    ModelRenderer(VulkanContext &ctx, std::function<void()> callback);
 
-    ~TexturedCubeRenderer();
+    ~ModelRenderer();
 
     void OnUpdate() override;
     void OnImGui() override;
@@ -29,8 +29,7 @@ class TexturedCubeRenderer : public RendererBase {
     void CreateCommandPools();
     void CreateCommandBuffers();
 
-    void CreateVertexBuffers();
-    void CreateIndexBuffers();
+    void LoadModel();
     void CreateUniformBuffers();
 
     void CreateTextureResources();
@@ -61,6 +60,13 @@ class TexturedCubeRenderer : public RendererBase {
     Buffer mIndexBuffer;
     size_t mIndexCount;
 
+    struct GeoSurface {
+        uint32_t StartIndex;
+        uint32_t Count;
+    };
+
+    std::vector<GeoSurface> mSurfaces;
+
     std::vector<MappedUniformBuffer> mUniformBuffers;
 
     struct UniformBufferObject {
@@ -69,6 +75,7 @@ class TexturedCubeRenderer : public RendererBase {
     UniformBufferObject mUBOData;
 
     float mRotationAngle = 0.0f;
+    float mCameraDistance = 3.0f;
 
     Image mTextureImage;
     VkImageView mTextureImageView;

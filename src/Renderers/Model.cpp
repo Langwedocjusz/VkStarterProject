@@ -1,4 +1,4 @@
-#include "TexturedCube.h"
+#include "Model.h"
 
 #include "Common.h"
 #include "Utils.h"
@@ -12,11 +12,20 @@
 #include "ImGuiContext.h"
 #include "imgui.h"
 
+#include <cstdint>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <array>
+#include <filesystem>
+#include <stdexcept>
+#include <vulkan/vulkan_core.h>
 
-std::vector<VkVertexInputAttributeDescription> TexturedCubeRenderer::Vertex::
+#include <fastgltf/core.hpp>
+#include <fastgltf/glm_element_traits.hpp>
+#include <fastgltf/tools.hpp>
+#include <fastgltf/types.hpp>
+
+std::vector<VkVertexInputAttributeDescription> ModelRenderer::Vertex::
     getAttributeDescriptions()
 {
     std::vector<VkVertexInputAttributeDescription> attributeDescriptions{
@@ -28,27 +37,25 @@ std::vector<VkVertexInputAttributeDescription> TexturedCubeRenderer::Vertex::
     return attributeDescriptions;
 }
 
-TexturedCubeRenderer::TexturedCubeRenderer(VulkanContext &ctx,
-                                           std::function<void()> callback)
+ModelRenderer::ModelRenderer(VulkanContext &ctx, std::function<void()> callback)
     : RendererBase(ctx, callback)
 {
     CreateDescriptorSets();
     CreateGraphicsPipelines();
     CreateSwapchainResources();
+    LoadModel();
     CreateTextureResources();
-    CreateVertexBuffers();
-    CreateIndexBuffers();
     CreateUniformBuffers();
     UpdateDescriptorSets();
 }
 
-TexturedCubeRenderer::~TexturedCubeRenderer()
+ModelRenderer::~ModelRenderer()
 {
     mSwapchainDeletionQueue.flush();
     mMainDeletionQueue.flush();
 }
 
-void TexturedCubeRenderer::OnUpdate()
+void ModelRenderer::OnUpdate()
 {
     // Update Uniform buffer data:
     auto width = static_cast<float>(ctx.Swapchain.extent.width);
@@ -56,7 +63,7 @@ void TexturedCubeRenderer::OnUpdate()
 
     float aspect = width / height;
 
-    glm::vec3 pos{0.0f, 0.0f, -3.0f};
+    glm::vec3 pos{0.0f, 0.0f, -mCameraDistance};
     glm::vec3 front{0.0f, 0.0f, 1.0f};
     glm::vec3 up{0.0f, 1.0f, 0.0f};
 
@@ -65,6 +72,7 @@ void TexturedCubeRenderer::OnUpdate()
 
     auto model = glm::mat4(1.0f);
     model = glm::rotate(model, mRotationAngle, glm::vec3(0,1,0));
+    model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1,0,0));
 
     mUBOData.MVP = proj * view * model;
 
@@ -72,15 +80,16 @@ void TexturedCubeRenderer::OnUpdate()
     uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
 }
 
-void TexturedCubeRenderer::OnImGui()
+void ModelRenderer::OnImGui()
 {
-    ImGui::Begin("Textured Cube###Menu");
+    ImGui::Begin("Model###Menu");
     callback();
     ImGui::SliderFloat("Rotation", &mRotationAngle, 0.0f, 6.28f);
+    ImGui::SliderFloat("Camera distance", &mCameraDistance, 0.0f, 10.0f);
     ImGui::End();
 }
 
-void TexturedCubeRenderer::OnRenderImpl()
+void ModelRenderer::OnRenderImpl()
 {
     auto &imageAcquiredSemaphore = mImageAcquiredSemaphores[mFrameSemaphoreIndex];
     auto &renderCompleteSemaphore = mRenderCompletedSemaphores[mFrameSemaphoreIndex];
@@ -112,14 +121,14 @@ void TexturedCubeRenderer::OnRenderImpl()
     common::PresentFrame(ctx, mPresentQueue, renderCompleteSemaphore, mFrameImageIndex);
 }
 
-void TexturedCubeRenderer::CreateSwapchainResources()
+void ModelRenderer::CreateSwapchainResources()
 {
     CreateDepthResources();
     CreateCommandPools();
     CreateCommandBuffers();
 }
 
-void TexturedCubeRenderer::CreateDescriptorSets()
+void ModelRenderer::CreateDescriptorSets()
 {
     auto numFrames = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
@@ -152,7 +161,7 @@ void TexturedCubeRenderer::CreateDescriptorSets()
     });
 }
 
-void TexturedCubeRenderer::CreateGraphicsPipelines()
+void ModelRenderer::CreateGraphicsPipelines()
 {
     auto shaderStages = ShaderBuilder()
                             .SetVertexPath("assets/spirv/TexturedCubeVert.spv")
@@ -182,7 +191,7 @@ void TexturedCubeRenderer::CreateGraphicsPipelines()
     });
 }
 
-void TexturedCubeRenderer::CreateCommandPools()
+void ModelRenderer::CreateCommandPools()
 {
     VkCommandPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -197,7 +206,7 @@ void TexturedCubeRenderer::CreateCommandPools()
         [&]() { vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr); });
 }
 
-void TexturedCubeRenderer::CreateCommandBuffers()
+void ModelRenderer::CreateCommandBuffers()
 {
     mCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
@@ -212,8 +221,8 @@ void TexturedCubeRenderer::CreateCommandBuffers()
         throw std::runtime_error("Failed to allocate command buffers!");
 }
 
-void TexturedCubeRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
-                                               uint32_t imageIndex)
+void ModelRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
+                                        uint32_t imageIndex)
 {
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -261,13 +270,14 @@ void TexturedCubeRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
         std::array<VkDeviceSize, 1> offsets{0};
         vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers.data(), offsets.data());
 
-        vkCmdBindIndexBuffer(commandBuffer, mIndexBuffer.Handle, 0, VK_INDEX_TYPE_UINT16);
+        vkCmdBindIndexBuffer(commandBuffer, mIndexBuffer.Handle, 0, VK_INDEX_TYPE_UINT32);
 
         vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                 mGraphicsPipeline.Layout, 0, 1,
                                 &mDescriptorSets[mFrameSemaphoreIndex], 0, nullptr);
 
-        vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(mIndexCount), 1, 0, 0, 0);
+        for (auto &surf : mSurfaces)
+            vkCmdDrawIndexed(commandBuffer, surf.Count, 1, surf.StartIndex, 0, 0);
 
         ImGuiContextManager::RecordImguiToCommandBuffer(commandBuffer);
     }
@@ -280,88 +290,129 @@ void TexturedCubeRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
         throw std::runtime_error("Failed to record command buffer!");
 }
 
-void TexturedCubeRenderer::CreateVertexBuffers()
+void ModelRenderer::LoadModel()
 {
-    // clang-format off
-    const std::vector<Vertex> vertices = {
-        {{-0.5f, -0.5f, -0.5f},  {0.0f, 0.0f}},
-        {{ 0.5f, -0.5f, -0.5f},  {1.0f, 0.0f}},
-        {{ 0.5f,  0.5f, -0.5f},  {1.0f, 1.0f}},
-        {{-0.5f,  0.5f, -0.5f},  {0.0f, 1.0f}},
+    // Retrieve data from gltf file:
+    std::vector<uint32_t> indices;
+    std::vector<Vertex> vertices;
 
-        {{-0.5f, -0.5f,  0.5f},  {0.0f, 0.0f}},
-        {{ 0.5f, -0.5f,  0.5f},  {1.0f, 0.0f}},
-        {{ 0.5f,  0.5f,  0.5f},  {1.0f, 1.0f}},
-        {{-0.5f,  0.5f,  0.5f},  {0.0f, 1.0f}},
+    auto working_dir = std::filesystem::current_path();
+    std::filesystem::path path =
+        working_dir / "assets/gltf/DamagedHelmet/DamagedHelmet.gltf";
 
-        {{-0.5f,  0.5f,  0.5f},  {1.0f, 0.0f}},
-        {{-0.5f,  0.5f, -0.5f},  {1.0f, 1.0f}},
-        {{-0.5f, -0.5f, -0.5f},  {0.0f, 1.0f}},
-        {{-0.5f, -0.5f,  0.5f},  {0.0f, 0.0f}},
+    fastgltf::Parser parser;
+    auto data = fastgltf::GltfDataBuffer::FromPath(path);
 
-        {{0.5f,  0.5f,  0.5f},   {1.0f, 0.0f}},
-        {{0.5f,  0.5f, -0.5f},   {1.0f, 1.0f}},
-        {{0.5f, -0.5f, -0.5f},   {0.0f, 1.0f}},
-        {{0.5f, -0.5f,  0.5f},   {0.0f, 0.0f}},
+    if (data.error() != fastgltf::Error::None)
+        throw std::runtime_error("Failed to load a gltf file!");
 
-        {{-0.5f, -0.5f, -0.5f},  {0.0f, 1.0f}},
-        {{ 0.5f, -0.5f, -0.5f},  {1.0f, 1.0f}},
-        {{ 0.5f, -0.5f,  0.5f},  {1.0f, 0.0f}},
-        {{-0.5f, -0.5f,  0.5f},  {0.0f, 0.0f}},
+    auto loadOptions = fastgltf::Options::LoadExternalBuffers;
 
-        {{-0.5f,  0.5f, -0.5f},  {0.0f, 1.0f}},
-        {{ 0.5f,  0.5f, -0.5f},  {1.0f, 1.0f}},
-        {{ 0.5f,  0.5f,  0.5f},  {1.0f, 0.0f}},
-        {{-0.5f,  0.5f,  0.5f},  {0.0f, 0.0f}},
-    };
-    // clang-format on
+    auto load = parser.loadGltf(data.get(), path.parent_path(), loadOptions);
 
-    mVertexCount = vertices.size();
+    if (load.error() != fastgltf::Error::None)
+        throw std::runtime_error("Failed to parse a gltf file!");
 
-    GPUBufferInfo info{
-        .Queue = mGraphicsQueue,
-        .Pool = mCommandPool,
-        .Data = vertices.data(),
-        .Size = mVertexCount * sizeof(Vertex),
-        .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-        .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-    };
+    auto gltf = std::move(load.get());
 
-    mVertexBuffer = Buffer::CreateGPUBuffer(ctx, info);
+    // Temporary, load just the first mesh
+    auto &mesh = gltf.meshes[0];
 
-    mMainDeletionQueue.push_back([&]() { Buffer::DestroyBuffer(ctx, mVertexBuffer); });
+    for (auto &&primitive : mesh.primitives)
+    {
+        auto indexCount = gltf.accessors[primitive.indicesAccessor.value()].count;
+
+        GeoSurface newSurf{
+            .StartIndex = static_cast<uint32_t>(indices.size()),
+            .Count = static_cast<uint32_t>(indexCount),
+        };
+
+        mSurfaces.push_back(newSurf);
+
+        size_t initial_vtx = vertices.size();
+
+        // Retrieve indices
+        {
+            fastgltf::Accessor &indexaccessor =
+                gltf.accessors[primitive.indicesAccessor.value()];
+            indices.reserve(indices.size() + indexaccessor.count);
+
+            fastgltf::iterateAccessor<std::uint32_t>(
+                gltf, indexaccessor,
+                [&](std::uint32_t idx) { indices.push_back(idx + initial_vtx); });
+        }
+
+        // Retrieve vertex positions
+        {
+            fastgltf::Accessor &posAccessor =
+                gltf.accessors[primitive.findAttribute("POSITION")->accessorIndex];
+            vertices.resize(vertices.size() + posAccessor.count);
+
+            fastgltf::iterateAccessorWithIndex<glm::vec3>(
+                gltf, posAccessor, [&](glm::vec3 v, size_t index) {
+                    Vertex newVert;
+                    newVert.Pos = v;
+                    newVert.TexCoord = {0.0f, 0.0f};
+                    vertices[initial_vtx + index] = newVert;
+                });
+        }
+
+        // Retrieve texture coords
+        auto texcoordIt = primitive.findAttribute("TEXCOORD_0");
+
+        if (texcoordIt != primitive.attributes.end())
+        {
+            fastgltf::Accessor &texcoordAccessor =
+                gltf.accessors[texcoordIt->accessorIndex];
+
+            fastgltf::iterateAccessorWithIndex<glm::vec2>(
+                gltf, texcoordAccessor, [&](glm::vec2 v, size_t index) {
+                    vertices[initial_vtx + index].TexCoord = v;
+                });
+        }
+    }
+
+    // Upload data to GPU buffers:
+
+    // Vertex buffer:
+    {
+        mVertexCount = vertices.size();
+
+        GPUBufferInfo info{
+            .Queue = mGraphicsQueue,
+            .Pool = mCommandPool,
+            .Data = vertices.data(),
+            .Size = mVertexCount * sizeof(Vertex),
+            .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        };
+
+        mVertexBuffer = Buffer::CreateGPUBuffer(ctx, info);
+
+        mMainDeletionQueue.push_back(
+            [&]() { Buffer::DestroyBuffer(ctx, mVertexBuffer); });
+    }
+
+    // Index buffer:
+    {
+        mIndexCount = indices.size();
+
+        GPUBufferInfo info{
+            .Queue = mGraphicsQueue,
+            .Pool = mCommandPool,
+            .Data = indices.data(),
+            .Size = mIndexCount * sizeof(uint32_t),
+            .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        };
+
+        mIndexBuffer = Buffer::CreateGPUBuffer(ctx, info);
+
+        mMainDeletionQueue.push_back([&]() { Buffer::DestroyBuffer(ctx, mIndexBuffer); });
+    }
 }
 
-void TexturedCubeRenderer::CreateIndexBuffers()
-{
-    // clang-format off
-    const std::vector<uint16_t> indices = {
-        0, 2, 1, 2, 0, 3,
-        4, 5, 6, 6, 7, 4,
-        8, 9, 10, 10, 11, 8,
-        12, 14, 13, 14, 12, 15,
-        16, 17, 18, 18, 19, 16,
-        20, 22, 21, 22, 20, 23
-    };
-    // clang-format on
-
-    mIndexCount = indices.size();
-
-    GPUBufferInfo info{
-        .Queue = mGraphicsQueue,
-        .Pool = mCommandPool,
-        .Data = indices.data(),
-        .Size = mIndexCount * sizeof(uint16_t),
-        .Usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-        .Properties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-    };
-
-    mIndexBuffer = Buffer::CreateGPUBuffer(ctx, info);
-
-    mMainDeletionQueue.push_back([&]() { Buffer::DestroyBuffer(ctx, mIndexBuffer); });
-}
-
-void TexturedCubeRenderer::CreateUniformBuffers()
+void ModelRenderer::CreateUniformBuffers()
 {
     VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
@@ -376,7 +427,7 @@ void TexturedCubeRenderer::CreateUniformBuffers()
     });
 }
 
-void TexturedCubeRenderer::UpdateDescriptorSets()
+void ModelRenderer::UpdateDescriptorSets()
 {
     for (size_t i = 0; i < mDescriptorSets.size(); i++)
     {
@@ -413,12 +464,12 @@ void TexturedCubeRenderer::UpdateDescriptorSets()
     }
 }
 
-void TexturedCubeRenderer::CreateTextureResources()
+void ModelRenderer::CreateTextureResources()
 {
     ImageLoaderInfo info{
         .Queue = mGraphicsQueue,
         .Pool = mCommandPool,
-        .Filepath = "assets/textures/container.jpg",
+        .Filepath = "assets/gltf/DamagedHelmet/Default_albedo.jpg",
     };
 
     mTextureImage = ImageLoaders::LoadImage2D(ctx, info);
@@ -439,7 +490,7 @@ void TexturedCubeRenderer::CreateTextureResources()
     });
 }
 
-void TexturedCubeRenderer::CreateDepthResources()
+void ModelRenderer::CreateDepthResources()
 {
     VkFormat depthFormat = utils::FindDepthFormat(ctx);
 

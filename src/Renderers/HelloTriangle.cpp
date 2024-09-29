@@ -65,7 +65,7 @@ void HelloTriangleRenderer::OnUpdate()
 
 void HelloTriangleRenderer::OnImGui()
 {
-    ImGui::Begin("Hello Triangle");
+    ImGui::Begin("Hello Triangle###Menu");
     callback();
     ImGui::SliderFloat("Rotation", &mUBOData.Phi, 0.0f, 6.28f);
     ImGui::End();
@@ -133,7 +133,7 @@ void HelloTriangleRenderer::CreateDescriptorSets()
 
     mDescriptorSets = Descriptor::Allocate(ctx, mDescriptorPool, layouts);
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         vkDestroyDescriptorPool(ctx.Device, mDescriptorPool, nullptr);
         vkDestroyDescriptorSetLayout(ctx.Device, mDescriptorSetLayout, nullptr);
     });
@@ -160,7 +160,7 @@ void HelloTriangleRenderer::CreateGraphicsPipelines()
                             .SetSwapchainColorFormat(ctx.Swapchain.image_format)
                             .Build(ctx, mDescriptorSetLayout);
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         vkDestroyPipeline(ctx.Device, mGraphicsPipeline.Handle, nullptr);
         vkDestroyPipelineLayout(ctx.Device, mGraphicsPipeline.Layout, nullptr);
     });
@@ -177,9 +177,8 @@ void HelloTriangleRenderer::CreateCommandPools()
     if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &mCommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a command pool!");
 
-    mSwapchainDeletionQueue.push_back([&](){
-        vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr);
-    });
+    mSwapchainDeletionQueue.push_back(
+        [&]() { vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr); });
 }
 
 void HelloTriangleRenderer::CreateCommandBuffers()
@@ -276,9 +275,7 @@ void HelloTriangleRenderer::CreateVertexBuffers()
 
     mVertexBuffer = Buffer::CreateGPUBuffer(ctx, info);
 
-    mMainDeletionQueue.push_back([&](){
-        Buffer::DestroyBuffer(ctx, mVertexBuffer);
-    });
+    mMainDeletionQueue.push_back([&]() { Buffer::DestroyBuffer(ctx, mVertexBuffer); });
 }
 
 void HelloTriangleRenderer::CreateUniformBuffers()
@@ -290,7 +287,7 @@ void HelloTriangleRenderer::CreateUniformBuffers()
     for (auto &uniformBuffer : mUniformBuffers)
         uniformBuffer.OnInit(ctx, bufferSize);
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         for (auto &uniformBuffer : mUniformBuffers)
             uniformBuffer.OnDestroy(ctx);
     });

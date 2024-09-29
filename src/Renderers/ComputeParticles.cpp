@@ -69,7 +69,7 @@ void ComputeParticleRenderer::OnUpdate()
 
 void ComputeParticleRenderer::OnImGui()
 {
-    ImGui::Begin("Compute Particles");
+    ImGui::Begin("Compute Particles###Menu");
     callback();
     ImGui::SliderFloat("Point size", &mUBOData.PointSize, 5.0f, 100.0f);
     ImGui::SliderFloat("Speed", &mUBOData.Speed, 0.0f, 1.0f);
@@ -169,7 +169,7 @@ void ComputeParticleRenderer::CreateDescriptorSets()
 
     mDescriptorSets = Descriptor::Allocate(ctx, mDescriptorPool, layouts);
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         vkDestroyDescriptorPool(ctx.Device, mDescriptorPool, nullptr);
         vkDestroyDescriptorSetLayout(ctx.Device, mDescriptorSetLayout, nullptr);
     });
@@ -197,7 +197,7 @@ void ComputeParticleRenderer::CreateGraphicsPipelines()
                             .EnableBlending()
                             .Build(ctx, mDescriptorSetLayout);
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         vkDestroyPipeline(ctx.Device, mGraphicsPipeline.Handle, nullptr);
         vkDestroyPipelineLayout(ctx.Device, mGraphicsPipeline.Layout, nullptr);
     });
@@ -212,7 +212,7 @@ void ComputeParticleRenderer::CreateComputePipelines()
                            .SetShaderStage(shaderStages[0])
                            .Build(ctx, mDescriptorSetLayout);
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         vkDestroyPipeline(ctx.Device, mComputePipeline.Handle, nullptr);
         vkDestroyPipelineLayout(ctx.Device, mComputePipeline.Layout, nullptr);
     });
@@ -229,7 +229,7 @@ void ComputeParticleRenderer::CreateSyncObjects()
         utils::CreateSignalledFence(ctx, mComputeInFlightFences[i]);
     }
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
         {
             vkDestroySemaphore(ctx.Device, mComputeFinishedSemaphores[i], nullptr);
@@ -249,39 +249,28 @@ void ComputeParticleRenderer::CreateCommandPools()
     if (vkCreateCommandPool(ctx.Device, &pool_info, nullptr, &mCommandPool) != VK_SUCCESS)
         throw std::runtime_error("Failed to create a command pool!");
 
-    mSwapchainDeletionQueue.push_back([&](){
-        vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr);
-    });
+    mSwapchainDeletionQueue.push_back(
+        [&]() { vkDestroyCommandPool(ctx.Device, mCommandPool, nullptr); });
 }
 
 void ComputeParticleRenderer::CreateCommandBuffers()
 {
-    {
-        mCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    mCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    mComputeCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
-        VkCommandBufferAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = mCommandPool;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandBufferCount = static_cast<uint32_t>(mCommandBuffers.size());
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = mCommandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT);
 
-        if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, mCommandBuffers.data()) !=
-            VK_SUCCESS)
-            throw std::runtime_error("Failed to allocate command buffers!");
-    }
-    {
-        mComputeCommandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, mCommandBuffers.data()) !=
+        VK_SUCCESS)
+        throw std::runtime_error("Failed to allocate command buffers!");
 
-        VkCommandBufferAllocateInfo allocInfo = {};
-        allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.commandPool = mCommandPool;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandBufferCount = static_cast<uint32_t>(mComputeCommandBuffers.size());
-
-        if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, mComputeCommandBuffers.data()) !=
-            VK_SUCCESS)
-            throw std::runtime_error("Failed to allocate command buffers!");
-    }
+    if (vkAllocateCommandBuffers(ctx.Device, &allocInfo, mComputeCommandBuffers.data()) !=
+        VK_SUCCESS)
+        throw std::runtime_error("Failed to allocate command buffers!");
 }
 
 void ComputeParticleRenderer::RecordCommandBuffer(VkCommandBuffer commandBuffer,
@@ -399,7 +388,7 @@ void ComputeParticleRenderer::CreateVertexBuffers()
         buffer = Buffer::CreateGPUBuffer(ctx, info);
     }
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         for (auto &buffer : mVertexBuffers)
             Buffer::DestroyBuffer(ctx, buffer);
     });
@@ -414,7 +403,7 @@ void ComputeParticleRenderer::CreateUniformBuffers()
     for (auto &uniformBuffer : mUniformBuffers)
         uniformBuffer.OnInit(ctx, bufferSize);
 
-    mMainDeletionQueue.push_back([&](){
+    mMainDeletionQueue.push_back([&]() {
         for (auto &uniformBuffer : mUniformBuffers)
             uniformBuffer.OnDestroy(ctx);
     });
