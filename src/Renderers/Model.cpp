@@ -339,7 +339,7 @@ void ModelRenderer::LoadModel()
 
             fastgltf::iterateAccessor<std::uint32_t>(
                 gltf, indexaccessor,
-                [&](std::uint32_t idx) { indices.push_back(idx + initial_vtx); });
+                [&](std::uint32_t idx) { indices.push_back(idx + static_cast<uint32_t>(initial_vtx)); });
         }
 
         // Retrieve vertex positions

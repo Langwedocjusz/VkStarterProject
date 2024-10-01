@@ -342,7 +342,7 @@ void ComputeParticleRenderer::RecordComputeCommandBuffer(VkCommandBuffer command
                             mComputePipeline.Layout, 0, 1,
                             &mDescriptorSets[mFrameSemaphoreIndex], 0, 0);
 
-    vkCmdDispatch(commandBuffer, mVertexCount / 256, 1, 1);
+    vkCmdDispatch(commandBuffer, static_cast<uint32_t>(mVertexCount) / 256, 1, 1);
 
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
         throw std::runtime_error("Failed to record command buffer!");

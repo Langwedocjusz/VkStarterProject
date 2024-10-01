@@ -5,6 +5,9 @@
 #include "ImGuiContext.h"
 #include "imgui.h"
 
+#include <array>
+#include <vulkan/vulkan_core.h>
+
 MainMenuRenderer::MainMenuRenderer(VulkanContext &ctx, std::function<void()> callback)
     : RendererBase(ctx, callback)
 {
@@ -46,7 +49,7 @@ void MainMenuRenderer::OnRenderImpl()
         vkResetCommandBuffer(buffer, 0);
         RecordCommandBuffer(buffer, mFrameImageIndex);
 
-        auto buffers = std::array<VkCommandBuffer, 1>{buffer};
+        std::array<VkCommandBuffer, 1> buffers{{buffer}};
 
         common::SubmitGraphicsQueueDefault(mGraphicsQueue, buffers, fence,
                                            imageAcquiredSemaphore,
