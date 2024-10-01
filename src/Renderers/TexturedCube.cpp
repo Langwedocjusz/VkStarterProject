@@ -64,7 +64,7 @@ void TexturedCubeRenderer::OnUpdate()
     auto view = glm::lookAt(pos, pos + front, up);
 
     auto model = glm::mat4(1.0f);
-    model = glm::rotate(model, mRotationAngle, glm::vec3(0,1,0));
+    model = glm::rotate(model, mRotationAngle, glm::vec3(0, 1, 0));
 
     mUBOData.MVP = proj * view * model;
 

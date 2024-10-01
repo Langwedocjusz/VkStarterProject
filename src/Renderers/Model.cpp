@@ -71,8 +71,8 @@ void ModelRenderer::OnUpdate()
     auto view = glm::lookAt(pos, pos + front, up);
 
     auto model = glm::mat4(1.0f);
-    model = glm::rotate(model, mRotationAngle, glm::vec3(0,1,0));
-    model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1,0,0));
+    model = glm::rotate(model, mRotationAngle, glm::vec3(0, 1, 0));
+    model = glm::rotate(model, glm::radians(-90.0f), glm::vec3(1, 0, 0));
 
     mUBOData.MVP = proj * view * model;
 
@@ -338,8 +338,9 @@ void ModelRenderer::LoadModel()
             indices.reserve(indices.size() + indexaccessor.count);
 
             fastgltf::iterateAccessor<std::uint32_t>(
-                gltf, indexaccessor,
-                [&](std::uint32_t idx) { indices.push_back(idx + static_cast<uint32_t>(initial_vtx)); });
+                gltf, indexaccessor, [&](std::uint32_t idx) {
+                    indices.push_back(idx + static_cast<uint32_t>(initial_vtx));
+                });
         }
 
         // Retrieve vertex positions
