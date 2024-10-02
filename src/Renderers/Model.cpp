@@ -55,7 +55,7 @@ ModelRenderer::~ModelRenderer()
     mMainDeletionQueue.flush();
 }
 
-void ModelRenderer::OnUpdate()
+void ModelRenderer::OnUpdate([[maybe_unused]] float deltatime)
 {
     // Update Uniform buffer data:
     auto width = static_cast<float>(ctx.Swapchain.extent.width);

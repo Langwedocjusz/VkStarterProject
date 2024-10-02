@@ -47,7 +47,7 @@ ComputeParticleRenderer::~ComputeParticleRenderer()
     mMainDeletionQueue.flush();
 }
 
-void ComputeParticleRenderer::OnUpdate()
+void ComputeParticleRenderer::OnUpdate([[maybe_unused]] float deltatime)
 {
     auto width = static_cast<float>(ctx.Swapchain.extent.width);
     auto height = static_cast<float>(ctx.Swapchain.extent.height);
@@ -62,6 +62,7 @@ void ComputeParticleRenderer::OnUpdate()
     auto proj = glm::ortho(-sx, sx, -sy, sy, -1.0f, 1.0f);
 
     mUBOData.MVP = proj;
+    mUBOData.DeltaTime = deltatime / 1000.0f;
 
     auto &uniformBuffer = mUniformBuffers[mFrameSemaphoreIndex];
     uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
@@ -72,7 +73,7 @@ void ComputeParticleRenderer::OnImGui()
     ImGui::Begin("Compute Particles###Menu");
     callback();
     ImGui::SliderFloat("Point size", &mUBOData.PointSize, 5.0f, 100.0f);
-    ImGui::SliderFloat("Speed", &mUBOData.Speed, 0.0f, 1.0f);
+    ImGui::SliderFloat("Speed", &mUBOData.Speed, 0.0f, 50.0f);
     ImGui::End();
 }
 

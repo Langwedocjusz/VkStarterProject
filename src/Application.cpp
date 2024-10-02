@@ -13,6 +13,8 @@ Application::Application() : m_Ctx(800, 600, "Vulkanik", static_cast<void *>(thi
 {
     RecreateRenderer(true);
     m_RecreateRenderer = false;
+
+    mOldTime = std::chrono::high_resolution_clock::now();
 }
 
 Application::~Application()
@@ -25,6 +27,12 @@ void Application::Run()
 {
     while (!m_Ctx.Window.ShouldClose())
     {
+        using ms = std::chrono::duration<float, std::milli>;
+
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        mDeltaTime = std::chrono::duration_cast<ms>(currentTime - mOldTime).count();
+        mOldTime = currentTime;
+
         if (m_RecreateRenderer)
         {
             RecreateRenderer();
@@ -33,7 +41,7 @@ void Application::Run()
 
         // Swapchain logic based on:
         // https://gist.github.com/nanokatze/bb03a486571e13a7b6a8709368bd87cf#file-handling-window-resize-md
-        m_Renderer->OnUpdate();
+        m_Renderer->OnUpdate(mDeltaTime);
 
         if (m_Ctx.SwapchainOk)
         {

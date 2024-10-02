@@ -8,6 +8,7 @@ layout(binding = 0) uniform UniformBufferObject {
     mat4 MVP;
     float PointSize;
     float Speed;
+    float DeltaTime;
 } ubo;
 
 void main() {

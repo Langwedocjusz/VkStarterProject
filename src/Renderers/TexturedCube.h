@@ -14,7 +14,7 @@ class TexturedCubeRenderer : public RendererBase {
 
     ~TexturedCubeRenderer();
 
-    void OnUpdate() override;
+    void OnUpdate([[maybe_unused]] float deltatime) override;
     void OnImGui() override;
     void OnRenderImpl() override;
 

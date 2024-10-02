@@ -48,7 +48,7 @@ TexturedQuadRenderer::~TexturedQuadRenderer()
     mMainDeletionQueue.flush();
 }
 
-void TexturedQuadRenderer::OnUpdate()
+void TexturedQuadRenderer::OnUpdate([[maybe_unused]] float deltatime)
 {
     // Update Uniform buffer data:
     auto width = static_cast<float>(ctx.Swapchain.extent.width);

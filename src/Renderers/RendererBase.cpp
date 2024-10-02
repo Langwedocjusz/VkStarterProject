@@ -38,7 +38,7 @@ RendererBase::~RendererBase()
 {
 }
 
-void RendererBase::OnUpdate()
+void RendererBase::OnUpdate([[maybe_unused]] float deltatime)
 {
 }
 

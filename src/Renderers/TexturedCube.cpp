@@ -48,7 +48,7 @@ TexturedCubeRenderer::~TexturedCubeRenderer()
     mMainDeletionQueue.flush();
 }
 
-void TexturedCubeRenderer::OnUpdate()
+void TexturedCubeRenderer::OnUpdate([[maybe_unused]] float deltatime)
 {
     // Update Uniform buffer data:
     auto width = static_cast<float>(ctx.Swapchain.extent.width);

@@ -25,7 +25,7 @@ class RendererBase {
 
     virtual ~RendererBase();
 
-    virtual void OnUpdate();
+    virtual void OnUpdate([[maybe_unused]] float deltatime);
     virtual void OnImGui();
     void OnRender();
     void RecreateSwapchain();

@@ -4,6 +4,7 @@ layout (binding = 0) uniform ParameterUBO {
     mat4 MVP;
     float PointSize;
     float Speed;
+    float DeltaTime;
 } ubo;
 
 struct Particle {
@@ -35,7 +36,7 @@ void main()
 
     Particle particleIn = particlesIn[index];
 
-    vec2 outPos = particleIn.pos + particleIn.vel.xy * ubo.Speed;
+    vec2 outPos = particleIn.pos + particleIn.vel.xy * ubo.Speed * ubo.DeltaTime;
     vec2 outVel = particleIn.vel;
 
     MakePeriodic(outPos.x);

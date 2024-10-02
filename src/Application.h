@@ -5,6 +5,7 @@
 
 #include "RendererBase.h"
 
+#include <chrono>
 #include <memory>
 
 class Application {
@@ -38,4 +39,7 @@ class Application {
     std::unique_ptr<RendererBase> m_Renderer = nullptr;
 
     ImGuiContextManager m_ImGuiCtx;
+
+    float mDeltaTime = 0.0f;
+    std::chrono::time_point<std::chrono::high_resolution_clock> mOldTime;
 };

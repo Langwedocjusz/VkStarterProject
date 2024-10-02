@@ -14,7 +14,7 @@ class ComputeParticleRenderer : public RendererBase {
 
     ~ComputeParticleRenderer();
 
-    void OnUpdate() override;
+    void OnUpdate([[maybe_unused]] float deltatime) override;
     void OnImGui() override;
     void OnRenderImpl() override;
 
@@ -65,7 +65,8 @@ class ComputeParticleRenderer : public RendererBase {
     struct UniformBufferObject {
         glm::mat4 MVP = glm::mat4(1.0f);
         float PointSize = 50.0f;
-        float Speed = 0.5f;
+        float Speed = 25.0f;
+        float DeltaTime = 0.0f;
     };
     UniformBufferObject mUBOData;
 

@@ -42,7 +42,7 @@ HelloTriangleRenderer::~HelloTriangleRenderer()
     mMainDeletionQueue.flush();
 }
 
-void HelloTriangleRenderer::OnUpdate()
+void HelloTriangleRenderer::OnUpdate([[maybe_unused]] float deltatime)
 {
     // Update Uniform buffer data:
     auto width = static_cast<float>(ctx.Swapchain.extent.width);
