@@ -304,14 +304,24 @@ void ModelRenderer::LoadModel()
     auto data = fastgltf::GltfDataBuffer::FromPath(path);
 
     if (data.error() != fastgltf::Error::None)
-        throw std::runtime_error("Failed to load a gltf file!");
+    {
+        std::string err_msg = "Failed to load a gltf file!\n";
+        err_msg += "Filepath: " + path.string();
+
+        throw std::runtime_error(err_msg);
+    }
 
     auto loadOptions = fastgltf::Options::LoadExternalBuffers;
 
     auto load = parser.loadGltf(data.get(), path.parent_path(), loadOptions);
 
     if (load.error() != fastgltf::Error::None)
-        throw std::runtime_error("Failed to parse a gltf file!");
+    {
+        std::string err_msg = "Failed to parse a gltf file!\n";
+        err_msg += "Filepath: " + path.string();
+
+        throw std::runtime_error(err_msg);
+    }
 
     auto gltf = std::move(load.get());
 

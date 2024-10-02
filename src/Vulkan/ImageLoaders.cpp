@@ -10,7 +10,12 @@ Image ImageLoaders::LoadImage2D(VulkanContext &ctx, ImageLoaderInfo &info)
                                 &texChannels, STBI_rgb_alpha);
 
     if (!pixels)
-        throw std::runtime_error("Failed to load texture image!");
+    {
+        std::string err_msg = "Failed to load texture image!\n";
+        err_msg += "Filepath: " + info.Filepath;
+
+        throw std::runtime_error(err_msg);
+    }
 
     VkDeviceSize imageSize = texWidth * texHeight * 4;
 
