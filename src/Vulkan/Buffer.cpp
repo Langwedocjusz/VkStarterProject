@@ -113,15 +113,13 @@ Buffer Buffer::CreateGPUBuffer(VulkanContext &ctx, GPUBufferInfo info)
 
 void Buffer::CopyBuffer(VulkanContext &ctx, CopyBufferInfo info)
 {
-    VkCommandBuffer commandBuffer = utils::BeginSingleTimeCommands(ctx, info.Pool);
+    utils::ScopedCommand cmd(ctx, info.Queue, info.Pool);
 
     VkBufferCopy copyRegion{};
     copyRegion.srcOffset = 0;
     copyRegion.dstOffset = 0;
     copyRegion.size = info.Size;
-    vkCmdCopyBuffer(commandBuffer, info.Src, info.Dst, 1, &copyRegion);
-
-    utils::EndSingleTimeCommands(ctx, info.Queue, info.Pool, commandBuffer);
+    vkCmdCopyBuffer(cmd.Buffer, info.Src, info.Dst, 1, &copyRegion);
 }
 
 void MappedUniformBuffer::OnInit(VulkanContext &ctx, VkDeviceSize size)

@@ -23,10 +23,17 @@ VkVertexInputBindingDescription GetBindingDescription(uint32_t binding,
     return bindingDescription;
 }
 
-VkCommandBuffer BeginSingleTimeCommands(VulkanContext &ctx, VkCommandPool commandPool);
-
-void EndSingleTimeCommands(VulkanContext &ctx, VkQueue queue, VkCommandPool commandPool,
-                           VkCommandBuffer commandBuffer);
+class ScopedCommand{
+public:
+    ScopedCommand(VulkanContext &ctx, VkQueue queue, VkCommandPool commandPool);
+    ~ScopedCommand();
+public:
+    VkCommandBuffer Buffer;
+private:
+    VulkanContext &ctx;
+    VkQueue mQueue;
+    VkCommandPool mCommandPool;
+};
 
 VkFormat FindSupportedFormat(VulkanContext &ctx, const std::vector<VkFormat> &candidates,
                              VkImageTiling tiling, VkFormatFeatureFlags features);

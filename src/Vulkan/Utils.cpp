@@ -1,5 +1,6 @@
 #include "Utils.h"
 #include <stdexcept>
+#include <vulkan/vulkan_core.h>
 
 VkQueue utils::GetQueue(VulkanContext &ctx, vkb::QueueType type)
 {
@@ -33,8 +34,8 @@ void utils::CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore)
         throw std::runtime_error("Failed to create a semaphore!");
 }
 
-VkCommandBuffer utils::BeginSingleTimeCommands(VulkanContext &ctx,
-                                               VkCommandPool commandPool)
+utils::ScopedCommand::ScopedCommand(VulkanContext &ctx, VkQueue queue, VkCommandPool commandPool)
+    : ctx(ctx), mQueue(queue), mCommandPool(commandPool)
 {
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -42,33 +43,28 @@ VkCommandBuffer utils::BeginSingleTimeCommands(VulkanContext &ctx,
     allocInfo.commandPool = commandPool;
     allocInfo.commandBufferCount = 1;
 
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(ctx.Device, &allocInfo, &commandBuffer);
+    vkAllocateCommandBuffers(ctx.Device, &allocInfo, &Buffer);
 
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
-
-    return commandBuffer;
+    vkBeginCommandBuffer(Buffer, &beginInfo);
 }
 
-void utils::EndSingleTimeCommands(VulkanContext &ctx, VkQueue queue,
-                                  VkCommandPool commandPool,
-                                  VkCommandBuffer commandBuffer)
+utils::ScopedCommand::~ScopedCommand()
 {
-    vkEndCommandBuffer(commandBuffer);
+    vkEndCommandBuffer(Buffer);
 
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
+    submitInfo.pCommandBuffers = &Buffer;
 
-    vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(queue);
+    vkQueueSubmit(mQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(mQueue);
 
-    vkFreeCommandBuffers(ctx.Device, commandPool, 1, &commandBuffer);
+    vkFreeCommandBuffers(ctx.Device, mCommandPool, 1, &Buffer);
 }
 
 void utils::InsertImageMemoryBarrier(VkCommandBuffer buffer, ImageMemoryBarrierInfo info)
@@ -98,12 +94,16 @@ VkFormat utils::FindSupportedFormat(VulkanContext &ctx,
         VkFormatProperties props;
         vkGetPhysicalDeviceFormatProperties(ctx.PhysicalDevice, format, &props);
 
-        if (tiling == VK_IMAGE_TILING_LINEAR &&
-            (props.linearTilingFeatures & features) == features)
-            return format;
+        bool req_linear = (tiling == VK_IMAGE_TILING_LINEAR);
+        bool req_optimal = (tiling == VK_IMAGE_TILING_OPTIMAL);
 
-        else if (tiling == VK_IMAGE_TILING_OPTIMAL &&
-                 (props.optimalTilingFeatures & features) == features)
+        bool has_linear = (props.linearTilingFeatures & features) == features;
+        bool has_optimal = (props.optimalTilingFeatures & features) == features;
+
+        bool linear = req_linear && has_linear;
+        bool optimal = req_optimal && has_optimal;
+
+        if (linear || optimal)
             return format;
     }
 

@@ -93,7 +93,7 @@ void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageDataInfo info)
 
 void Image::CopyBufferToImage(VulkanContext &ctx, CopyBufferToImageInfo info)
 {
-    VkCommandBuffer commandBuffer = utils::BeginSingleTimeCommands(ctx, info.Pool);
+    utils::ScopedCommand cmd(ctx, info.Queue, info.Pool);
 
     VkBufferImageCopy region{};
     region.bufferOffset = 0;
@@ -108,15 +108,13 @@ void Image::CopyBufferToImage(VulkanContext &ctx, CopyBufferToImageInfo info)
     region.imageOffset = {0, 0, 0};
     region.imageExtent = {info.Width, info.Height, 1};
 
-    vkCmdCopyBufferToImage(commandBuffer, info.Buffer, info.Image,
+    vkCmdCopyBufferToImage(cmd.Buffer, info.Buffer, info.Image,
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-    utils::EndSingleTimeCommands(ctx, info.Queue, info.Pool, commandBuffer);
 }
 
 void Image::TransitionImageLayout(VulkanContext &ctx, TransitionImageLayoutInfo info)
 {
-    VkCommandBuffer commandBuffer = utils::BeginSingleTimeCommands(ctx, info.Pool);
+    utils::ScopedCommand cmd(ctx, info.Queue, info.Pool);
 
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -165,8 +163,6 @@ void Image::TransitionImageLayout(VulkanContext &ctx, TransitionImageLayoutInfo 
         throw std::invalid_argument("Unsupported layout transition!");
     }
 
-    vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0,
+    vkCmdPipelineBarrier(cmd.Buffer, sourceStage, destinationStage, 0, 0, nullptr, 0,
                          nullptr, 1, &barrier);
-
-    utils::EndSingleTimeCommands(ctx, info.Queue, info.Pool, commandBuffer);
 }
