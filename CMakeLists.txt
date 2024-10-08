@@ -49,6 +49,7 @@ target_sources(${PROJECT_NAME}
         src/Renderers/TexturedQuad.cpp
         src/SystemWindow.h
         src/SystemWindow.cpp
+        src/VmaImpl.cpp
         src/Vulkan/Buffer.h
         src/Vulkan/Buffer.cpp
         src/Vulkan/DeletionQueue.h
@@ -100,13 +101,18 @@ add_subdirectory(vendor/imgui)
 add_subdirectory(vendor/glm)
 add_subdirectory(vendor/stb_image)
 add_subdirectory(vendor/fastgltf)
+add_subdirectory(vendor/VulkanMemoryAllocator)
 
-#Turn warnings off for fastgltf headers...
+#Treat some external headers as system, since they trigger warnings...
 get_target_property(_inc fastgltf::fastgltf INTERFACE_INCLUDE_DIRECTORIES)
 target_include_directories(fastgltf SYSTEM INTERFACE ${_inc})
 
+get_target_property(_inc GPUOpen::VulkanMemoryAllocator INTERFACE_INCLUDE_DIRECTORIES)
+target_include_directories(VulkanMemoryAllocator SYSTEM INTERFACE ${_inc})
+
 #Link dependencies:
 target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
+target_link_libraries(${PROJECT_NAME} PRIVATE GPUOpen::VulkanMemoryAllocator)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
 target_link_libraries(${PROJECT_NAME} PRIVATE vk-bootstrap::vk-bootstrap)
 target_link_libraries(${PROJECT_NAME} PRIVATE imgui)

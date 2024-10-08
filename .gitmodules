@@ -14,3 +14,6 @@
 [submodule "vendor/fastgltf"]
 	path = vendor/fastgltf
 	url = https://github.com/spnda/fastgltf
+[submodule "vendor/VulkanMemoryAllocator"]
+	path = vendor/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator

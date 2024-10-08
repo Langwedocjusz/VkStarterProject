@@ -29,30 +29,20 @@ Image Image::CreateImage(VulkanContext &ctx, ImageInfo info)
     imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
     imageInfo.flags = 0;
 
-    if (vkCreateImage(ctx.Device, &imageInfo, nullptr, &img.Handle) != VK_SUCCESS)
-        throw std::runtime_error("Failed to create image!");
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    allocCreateInfo.priority = 1.0f;
 
-    VkMemoryRequirements memRequirements;
-    vkGetImageMemoryRequirements(ctx.Device, img.Handle, &memRequirements);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memRequirements.size;
-    allocInfo.memoryTypeIndex =
-        Buffer::FindMemoryType(ctx, memRequirements.memoryTypeBits, info.Properties);
-
-    if (vkAllocateMemory(ctx.Device, &allocInfo, nullptr, &img.Memory) != VK_SUCCESS)
-        throw std::runtime_error("Failed to allocate image memory!");
-
-    vkBindImageMemory(ctx.Device, img.Handle, img.Memory, 0);
+    vmaCreateImage(ctx.Allocator, &imageInfo, &allocCreateInfo, &img.Handle,
+                   &img.Allocation, nullptr);
 
     return img;
 }
 
 void Image::DestroyImage(VulkanContext &ctx, Image &img)
 {
-    vkDestroyImage(ctx.Device, img.Handle, nullptr);
-    vkFreeMemory(ctx.Device, img.Memory, nullptr);
+    vmaDestroyImage(ctx.Allocator, img.Handle, img.Allocation);
 }
 
 void Image::UploadToImage(VulkanContext &ctx, Image &img, ImageDataInfo info)

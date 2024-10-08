@@ -67,7 +67,7 @@ class ModelRenderer : public RendererBase {
 
     std::vector<GeoSurface> mSurfaces;
 
-    std::vector<MappedUniformBuffer> mUniformBuffers;
+    std::vector<Buffer> mUniformBuffers;
 
     struct UniformBufferObject {
         glm::mat4 MVP = glm::mat4(1.0f);

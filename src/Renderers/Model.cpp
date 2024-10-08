@@ -18,7 +18,7 @@
 #include <array>
 #include <filesystem>
 #include <stdexcept>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan_core.h>
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/glm_element_traits.hpp>
@@ -77,7 +77,7 @@ void ModelRenderer::OnUpdate([[maybe_unused]] float deltatime)
     mUBOData.MVP = proj * view * model;
 
     auto &uniformBuffer = mUniformBuffers[mFrameSemaphoreIndex];
-    uniformBuffer.UploadData(&mUBOData, sizeof(mUBOData));
+    Buffer::UploadToMappedBuffer(uniformBuffer, &mUBOData, sizeof(mUBOData));
 }
 
 void ModelRenderer::OnImGui()
@@ -430,11 +430,11 @@ void ModelRenderer::CreateUniformBuffers()
     mUniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 
     for (auto &uniformBuffer : mUniformBuffers)
-        uniformBuffer.OnInit(ctx, bufferSize);
+        uniformBuffer = Buffer::CreateMappedUniformBuffer(ctx, bufferSize);
 
     mMainDeletionQueue.push_back([&]() {
         for (auto &uniformBuffer : mUniformBuffers)
-            uniformBuffer.OnDestroy(ctx);
+            Buffer::DestroyBuffer(ctx, uniformBuffer);
     });
 }
 
@@ -443,7 +443,7 @@ void ModelRenderer::UpdateDescriptorSets()
     for (size_t i = 0; i < mDescriptorSets.size(); i++)
     {
         VkDescriptorBufferInfo bufferInfo{};
-        bufferInfo.buffer = mUniformBuffers[i].Handle();
+        bufferInfo.buffer = mUniformBuffers[i].Handle;
         bufferInfo.offset = 0;
         bufferInfo.range = sizeof(UniformBufferObject);
 

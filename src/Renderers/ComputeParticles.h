@@ -60,7 +60,7 @@ class ComputeParticleRenderer : public RendererBase {
     std::vector<Buffer> mVertexBuffers;
     size_t mVertexCount;
 
-    std::vector<MappedUniformBuffer> mUniformBuffers;
+    std::vector<Buffer> mUniformBuffers;
 
     struct UniformBufferObject {
         glm::mat4 MVP = glm::mat4(1.0f);

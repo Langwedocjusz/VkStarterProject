@@ -61,7 +61,7 @@ class TexturedCubeRenderer : public RendererBase {
     Buffer mIndexBuffer;
     size_t mIndexCount;
 
-    std::vector<MappedUniformBuffer> mUniformBuffers;
+    std::vector<Buffer> mUniformBuffers;
 
     struct UniformBufferObject {
         glm::mat4 MVP = glm::mat4(1.0f);

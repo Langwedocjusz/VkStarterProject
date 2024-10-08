@@ -20,7 +20,6 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
         throw std::runtime_error(inst_ret.error().message());
 
     Instance = inst_ret.value();
-    InstDisp = Instance.make_table();
     Surface = Window.CreateSurface(Instance);
 
     // Device selection:
@@ -53,6 +52,15 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
 
     Device = device_ret.value();
 
+    // Vma Allocator creation:
+    VmaAllocatorCreateInfo allocatorCreateInfo = {};
+    allocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+    allocatorCreateInfo.physicalDevice = PhysicalDevice;
+    allocatorCreateInfo.device = Device;
+    allocatorCreateInfo.instance = Instance;
+
+    vmaCreateAllocator(&allocatorCreateInfo, &Allocator);
+
     // Swapchain creation:
     CreateSwapchain(width, height, true);
 }
@@ -60,8 +68,10 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
 VulkanContext::~VulkanContext()
 {
     Swapchain.destroy_image_views(SwapchainImageViews);
-
     vkb::destroy_swapchain(Swapchain);
+
+    vmaDestroyAllocator(Allocator);
+
     vkb::destroy_device(Device);
     vkb::destroy_surface(Instance, Surface);
     vkb::destroy_instance(Instance);

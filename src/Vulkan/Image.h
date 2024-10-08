@@ -51,6 +51,6 @@ class Image {
 
   public:
     VkImage Handle;
-    VkDeviceMemory Memory;
+    VmaAllocation Allocation;
     ImageInfo Info;
 };

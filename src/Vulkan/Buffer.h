@@ -27,12 +27,13 @@ class Buffer {
                                    VkMemoryPropertyFlags properties);
 
     static Buffer CreateBuffer(VulkanContext &ctx, VkDeviceSize size,
-                               VkBufferUsageFlags usage,
-                               VkMemoryPropertyFlags properties);
+                               VkBufferUsageFlags usage, VmaAllocationCreateFlags flags);
     static void DestroyBuffer(VulkanContext &ctx, Buffer &buf);
 
     static void UploadToBuffer(VulkanContext &ctx, Buffer buff, const void *data,
                                VkDeviceSize size);
+
+    static void UploadToMappedBuffer(Buffer buff, const void *data, VkDeviceSize size);
 
     static Buffer CreateStagingBuffer(VulkanContext &ctx, VkDeviceSize size);
     static Buffer CreateMappedUniformBuffer(VulkanContext &ctx, VkDeviceSize size);
@@ -42,24 +43,6 @@ class Buffer {
 
   public:
     VkBuffer Handle;
-    VkDeviceMemory Memory;
-};
-
-class MappedUniformBuffer {
-  public:
-    MappedUniformBuffer() = default;
-
-    void OnInit(VulkanContext &ctx, VkDeviceSize size);
-    void OnDestroy(VulkanContext &ctx);
-
-    void UploadData(const void *data, size_t size);
-
-    VkBuffer Handle() const
-    {
-        return mBuffer.Handle;
-    }
-
-  private:
-    Buffer mBuffer;
-    void *mData = nullptr;
+    VmaAllocation Allocation;
+    VmaAllocationInfo AllocInfo;
 };

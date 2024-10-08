@@ -1,7 +1,10 @@
 #pragma once
 
-#include <GLFW/glfw3.h>
+// clang-format off
+// Vulkan MUST be included before glfw:
 #include <vulkan/vulkan.h>
+#include <GLFW/glfw3.h>
+// clang-format on
 
 #include <cstdint>
 #include <string>

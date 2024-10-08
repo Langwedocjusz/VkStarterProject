@@ -3,6 +3,8 @@
 #include "SystemWindow.h"
 #include "VkBootstrap.h"
 
+#include "vk_mem_alloc.h"
+
 /**
     Class encapsulating elements of Vulkan application
     that will typically be present during the whole lifetime of
@@ -21,10 +23,12 @@ class VulkanContext {
     SystemWindow Window;
 
     vkb::Instance Instance;
-    vkb::InstanceDispatchTable InstDisp;
-    VkSurfaceKHR Surface;
     vkb::PhysicalDevice PhysicalDevice;
     vkb::Device Device;
+
+    VmaAllocator Allocator;
+
+    VkSurfaceKHR Surface;
     vkb::Swapchain Swapchain;
 
     std::vector<VkImage> SwapchainImages;
