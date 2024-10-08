@@ -18,7 +18,7 @@
 #include <array>
 #include <filesystem>
 #include <stdexcept>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/glm_element_traits.hpp>

@@ -14,7 +14,7 @@
 
 #include <array>
 #include <random>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 std::vector<VkVertexInputAttributeDescription> ComputeParticleRenderer::Vertex::
     getAttributeDescriptions()

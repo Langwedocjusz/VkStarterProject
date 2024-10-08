@@ -6,7 +6,7 @@
 #include "imgui.h"
 
 #include <array>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 MainMenuRenderer::MainMenuRenderer(VulkanContext &ctx, std::function<void()> callback)
     : RendererBase(ctx, callback)

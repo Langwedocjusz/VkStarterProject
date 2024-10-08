@@ -71,8 +71,8 @@ void common::AcquireNextImage(VulkanContext &ctx, VkSemaphore semaphore,
 {
     if (ctx.SwapchainOk)
     {
-        VkResult result = ctx.Disp.acquireNextImageKHR(
-            ctx.Swapchain, UINT64_MAX, semaphore, VK_NULL_HANDLE, &imageIndex);
+        VkResult result = vkAcquireNextImageKHR(ctx.Device, ctx.Swapchain, UINT64_MAX,
+                                                semaphore, VK_NULL_HANDLE, &imageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR)
         {

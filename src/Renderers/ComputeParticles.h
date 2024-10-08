@@ -6,7 +6,7 @@
 #include "Pipeline.h"
 
 #include <glm/glm.hpp>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 class ComputeParticleRenderer : public RendererBase {
   public:

@@ -1,6 +1,6 @@
 #include "Utils.h"
 #include <stdexcept>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 VkQueue utils::GetQueue(VulkanContext &ctx, vkb::QueueType type)
 {
@@ -34,7 +34,8 @@ void utils::CreateSemaphore(VulkanContext &ctx, VkSemaphore &semaphore)
         throw std::runtime_error("Failed to create a semaphore!");
 }
 
-utils::ScopedCommand::ScopedCommand(VulkanContext &ctx, VkQueue queue, VkCommandPool commandPool)
+utils::ScopedCommand::ScopedCommand(VulkanContext &ctx, VkQueue queue,
+                                    VkCommandPool commandPool)
     : ctx(ctx), mQueue(queue), mCommandPool(commandPool)
 {
     VkCommandBufferAllocateInfo allocInfo{};

@@ -52,7 +52,6 @@ VulkanContext::VulkanContext(uint32_t width, uint32_t height, std::string title,
         throw std::runtime_error(device_ret.error().message());
 
     Device = device_ret.value();
-    Disp = Device.make_table();
 
     // Swapchain creation:
     CreateSwapchain(width, height, true);

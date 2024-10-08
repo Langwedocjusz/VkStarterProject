@@ -25,7 +25,6 @@ class VulkanContext {
     VkSurfaceKHR Surface;
     vkb::PhysicalDevice PhysicalDevice;
     vkb::Device Device;
-    vkb::DispatchTable Disp;
     vkb::Swapchain Swapchain;
 
     std::vector<VkImage> SwapchainImages;

@@ -34,7 +34,8 @@ static VkShaderModule CreateShaderModule(VulkanContext &ctx,
     create_info.pCode = reinterpret_cast<const uint32_t *>(code.data());
 
     VkShaderModule shaderModule;
-    if (ctx.Disp.createShaderModule(&create_info, nullptr, &shaderModule) != VK_SUCCESS)
+    if (vkCreateShaderModule(ctx.Device, &create_info, nullptr, &shaderModule) !=
+        VK_SUCCESS)
     {
         std::cerr << "Failed to create a shader module!\n";
         return VK_NULL_HANDLE; // failed to create shader module

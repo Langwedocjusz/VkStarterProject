@@ -23,13 +23,15 @@ VkVertexInputBindingDescription GetBindingDescription(uint32_t binding,
     return bindingDescription;
 }
 
-class ScopedCommand{
-public:
+class ScopedCommand {
+  public:
     ScopedCommand(VulkanContext &ctx, VkQueue queue, VkCommandPool commandPool);
     ~ScopedCommand();
-public:
+
+  public:
     VkCommandBuffer Buffer;
-private:
+
+  private:
     VulkanContext &ctx;
     VkQueue mQueue;
     VkCommandPool mCommandPool;

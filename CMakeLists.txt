@@ -115,5 +115,5 @@ target_link_libraries(${PROJECT_NAME} PRIVATE stb_image)
 target_link_libraries(${PROJECT_NAME} PRIVATE fastgltf::fastgltf)
 
 #Dependency-specific definitions:
-target_compile_definitions(${PROJECT_NAME} PRIVATE "GLFW_INCLUDE_VULKAN")
+#target_compile_definitions(${PROJECT_NAME} PRIVATE "VULKAN_HPP_NO_CONSTRUCTORS")
 target_compile_definitions(${PROJECT_NAME} PRIVATE "GLM_FORCE_DEPTH_ZERO_TO_ONE")

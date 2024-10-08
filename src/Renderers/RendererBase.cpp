@@ -1,7 +1,7 @@
 #include "RendererBase.h"
 
 #include <cstdint>
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 
 #include "Utils.h"
 
@@ -27,9 +27,9 @@ RendererBase::RendererBase(VulkanContext &context, std::function<void()> cb)
     mMainDeletionQueue.push_back([&]() {
         for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
         {
-            ctx.Disp.destroySemaphore(mRenderCompletedSemaphores[i], nullptr);
-            ctx.Disp.destroySemaphore(mImageAcquiredSemaphores[i], nullptr);
-            ctx.Disp.destroyFence(mInFlightFences[i], nullptr);
+            vkDestroySemaphore(ctx.Device, mRenderCompletedSemaphores[i], nullptr);
+            vkDestroySemaphore(ctx.Device, mImageAcquiredSemaphores[i], nullptr);
+            vkDestroyFence(ctx.Device, mInFlightFences[i], nullptr);
         }
     });
 }
@@ -64,7 +64,7 @@ RenderDataForImGui RendererBase::getImGuiData() const
 
 void RendererBase::RecreateSwapchain()
 {
-    ctx.Disp.deviceWaitIdle();
+    vkDeviceWaitIdle(ctx.Device);
 
     mSwapchainDeletionQueue.flush();
     ctx.CreateSwapchain(ctx.Width, ctx.Height);

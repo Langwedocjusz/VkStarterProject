@@ -19,7 +19,7 @@ Application::Application() : m_Ctx(800, 600, "Vulkanik", static_cast<void *>(thi
 
 Application::~Application()
 {
-    // Imgui destructed ad the end of Run, destructors of renderer and ctx clean up the
+    // Imgui destructed at the end of Run, destructors of renderer and ctx clean up the
     // rest
 }
 
@@ -60,7 +60,7 @@ void Application::Run()
         m_Renderer->OnRender();
     }
 
-    m_Ctx.Disp.deviceWaitIdle();
+    vkDeviceWaitIdle(m_Ctx.Device);
     // Here not in the destructor, to avoid triggering when an exception is thrown
     // as that results in imgui assert preventing the exception from propagating
     // up and being printed to cerr.
@@ -82,7 +82,7 @@ void Application::RecreateRenderer(bool first_run)
 
     if (!first_run)
     {
-        m_Ctx.Disp.deviceWaitIdle();
+        vkDeviceWaitIdle(m_Ctx.Device);
         m_ImGuiCtx.OnDestroy(m_Ctx);
     }
 
